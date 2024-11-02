@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chess Puzzle Solver</title>
+    <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Columna 1: Panel de información -->
+        <div class="column info-column">
+            <div id="info-panel" class="info-panel">
+                <!-- Controles de base de datos -->
+                <div class="db-controls">
+                    <input type="file" id="dbFile" accept=".json" class="file-input">
+                    <button id="loadDB" class="db-button">
+                        <i class="fas fa-database"></i> Cargar Base de Datos
+                    </button>
+                </div>
+                <div id="dbStats" class="db-stats"></div>
+                <div id="puzzlesList" class="puzzles-list"></div>
+                <div id="pgnStatus" class="pgn-status"></div>
+            </div>
+        </div>
+
+        <!-- Columna 2: Tablero y controles de navegación -->
+        <div class="column board-column">
+            <div class="board-section">
+                <div id="board" style="width: 100%"></div>
+                <div class="navigation-controls">
+                    <button id="startBtn" title="Ir al inicio">⏮</button>
+                    <button id="prevBtn" title="Anterior movimiento">⏪</button>
+                    <button id="nextBtn" title="Siguiente movimiento">⏩</button>
+                    <button id="endBtn" title="Ir al final">⏭</button>
+                </div>
+                <div id="movesNotation" class="moves-notation"></div>
+            </div>
+        </div>
+
+        <!-- Columna 3: Controles principales y análisis -->
+        <div class="column controls-column">
+            <div class="main-controls">
+                <input type="file" id="pgnFile" accept=".pgn" class="file-input" />
+                <button id="checkSolution" class="engine-button">Verificar Solución</button>
+            </div>
+            <div id="engineEvaluation" class="evaluation-panel">
+                <div class="eval-header">Análisis del Motor</div>
+                <div id="evalContent" class="eval-content"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts en el orden correcto -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+    <!-- Versión específica que funciona sin módulos -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js"></script>
+    <script src="js/script.js"></script>
+</body>
+</html>
