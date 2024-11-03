@@ -1,0 +1,271 @@
+/* Estilos generales */
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f0f0f0;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 20px;
+}
+
+/* Panel de información */
+.info-panel {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.db-controls {
+    margin-bottom: 20px;
+}
+
+/* Tablero y controles */
+.board-container {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#board {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+.navigation-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.navigation-controls button {
+    padding: 8px 16px;
+    font-size: 16px;
+    border: none;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.navigation-controls button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.moves-notation {
+    margin: 15px 0;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    min-height: 50px;
+    font-family: monospace;
+}
+
+.move {
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.move.active {
+    background-color: #e0e0e0;
+    border-radius: 3px;
+}
+
+/* Botones */
+.db-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+.db-button:hover {
+    background-color: #45a049;
+}
+
+.file-input {
+    display: none;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .container {
+        grid-template-columns: 1fr;
+    }
+    
+    body {
+        padding: 10px;
+    }
+}
+
+.evaluation-panel {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.eval-header {
+    font-weight: bold;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.eval-content {
+    font-family: monospace;
+    line-height: 1.5;
+}
+
+.pv-line {
+    margin-top: 5px;
+    padding: 10px;
+    background: #fff;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+    font-family: 'Courier New', monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.eval-content p {
+    margin: 8px 0;
+}
+
+.best-move {
+    color: #28a745;
+    font-weight: bold;
+}
+
+.error-message {
+    color: #dc3545;
+    padding: 10px;
+    background: #f8d7da;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.progress-bar {
+    height: 4px;
+    background: #e9ecef;
+    margin: 10px 0;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.progress-bar::after {
+    content: '';
+    display: block;
+    height: 100%;
+    width: 30%;
+    background: #4CAF50;
+    animation: progress 1s infinite linear;
+}
+
+@keyframes progress {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+}
+
+button.active {
+    background-color: #dc3545;
+}
+
+button.active:hover {
+    background-color: #c82333;
+}
+
+.engine-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 10px 0;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.engine-button:hover {
+    background-color: #45a049;
+}
+
+.engine-button.active {
+    background-color: #dc3545;
+}
+
+.engine-button.active:hover {
+    background-color: #c82333;
+}
+
+.piece-417db {
+    touch-action: none;
+}
+
+.database-section {
+    margin: 20px 0;
+}
+
+.database-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.puzzles-header {
+    font-weight: bold;
+    margin: 15px 0;
+    padding: 10px;
+    background: #e9ecef;
+    border-radius: 4px;
+}
+
+.puzzle-item {
+    padding: 10px;
+    margin: 5px 0;
+    background: #f8f9fa;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.puzzle-item:hover {
+    background: #e9ecef;
+}
+
+.puzzle-item.active {
+    background: #007bff;
+    color: white;
+}
+
+.error-message {
+    color: #dc3545;
+    background: #f8d7da;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
+} 
