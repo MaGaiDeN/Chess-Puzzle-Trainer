@@ -313,10 +313,10 @@ button.active:hover {
 
 .main-container {
     display: flex;
-    justify-content: space-between;
     gap: 20px;
     max-width: 1400px;
     margin: 0 auto;
+    padding: 20px;
     min-height: 100vh;
 }
 
@@ -345,8 +345,17 @@ button.active:hover {
 .right-column {
     flex: 0 0 300px;
     display: flex;
-    flex-direction: column;
-    gap: 20px;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+}
+
+.chess-logo {
+    width: 100%;
+    max-width: 250px;
+    height: auto;
+    object-fit: contain;
+    margin-top: 0;
 }
 
 /* Estilos del botón de carga */
@@ -543,6 +552,10 @@ button.active:hover {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     padding: 15px;
     flex: 1;
+    overflow-y: auto;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Notación de movimientos en la columna central */
@@ -556,5 +569,335 @@ button.active:hover {
     font-size: 16px;
     min-height: 150px;
     margin-top: 20px;
+}
+
+/* Estilos base */
+.main-container {
+    display: flex;
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+.column {
+    padding: 15px;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+/* Columna izquierda */
+.left-column {
+    flex: 0 0 250px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.load-button {
+    width: 100%;
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.puzzles-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: calc(100vh - 200px);
+}
+
+/* Columna central */
+.center-column {
+    flex: 1;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+}
+
+.board {
+    width: 100%;
+    max-width: 600px;
+    aspect-ratio: 1;
+}
+
+.controls {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+/* Columna derecha */
+.right-column {
+    flex: 0 0 300px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+}
+
+.engine-evaluation {
+    flex: 1;
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    overflow-y: auto;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.evaluation-panel {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.eval-header {
+    font-weight: bold;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dee2e6;
+    flex-shrink: 0;
+}
+
+.eval-content {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+.pv-line {
+    margin-top: 5px;
+    padding: 10px;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+}
+
+.eval-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.eval-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.eval-content::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+}
+
+.eval-content::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .main-container {
+        gap: 15px;
+        padding: 15px;
+    }
+
+    .left-column {
+        flex: 0 0 200px;
+    }
+
+    .right-column {
+        flex: 0 0 250px;
+    }
+}
+
+@media (max-width: 992px) {
+    .main-container {
+        flex-direction: column;
+    }
+
+    .column {
+        width: 100%;
+    }
+
+    .left-column, .right-column {
+        flex: none;
+        max-height: 300px;
+    }
+
+    .board {
+        max-width: 500px;
+    }
+}
+
+@media (max-width: 768px) {
+    .main-container {
+        padding: 10px;
+    }
+
+    .board {
+        max-width: 100%;
+    }
+
+    .navigation-controls {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .navigation-controls button {
+        flex: 1;
+        min-width: 100px;
+    }
+}
+
+@media (max-width: 480px) {
+    .main-container {
+        padding: 5px;
+    }
+
+    .column {
+        padding: 10px;
+    }
+
+    .navigation-controls button {
+        min-width: 80px;
+        font-size: 14px;
+    }
+}
+
+.controls-evaluation-row {
+    display: flex;
+    gap: 20px;
+    width: 100%;
+    align-items: start;
+    margin-top: 20px;
+}
+
+.controls {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.engine-evaluation {
+    flex: 1;
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    min-height: 100px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.right-column {
+    flex: 0 0 300px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 20px;
+}
+
+.chess-logo {
+    width: 100%;
+    max-width: 250px;
+    height: auto;
+    object-fit: contain;
+    margin-top: 0;
+}
+
+/* Ajustes responsive */
+@media (max-width: 1200px) {
+    .controls-evaluation-row {
+        flex-direction: column;
+    }
+
+    .engine-evaluation {
+        width: 100%;
+    }
+}
+
+@media (max-width: 992px) {
+    .right-column {
+        order: -1; /* Mueve el logo arriba en móviles */
+    }
+
+    .chess-logo {
+        max-width: 200px;
+    }
+}
+
+@media (max-width: 768px) {
+    .controls-evaluation-row {
+        gap: 15px;
+    }
+}
+
+.controls-row {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+    margin: 20px 0;
+}
+
+.navigation-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.engine-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-top: 15px;
+}
+
+.engine-button {
+    flex: 0 0 auto;
+    padding: 10px 20px;
+    height: 40px;
+    white-space: nowrap;
+}
+
+.engine-evaluation {
+    flex: 1;
+    background: white;
+    border-radius: 8px;
+    padding: 10px 15px;
+    display: none; /* Se mostrará cuando se active Stockfish */
+}
+
+.evaluation-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.eval-content {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.right-column {
+    flex: 0 0 300px;
+    display: flex;
+    justify-content: center;
+    padding-top: 20px;
+}
+
+.chess-logo {
+    width: 100%;
+    max-width: 250px;
+    height: auto;
+    object-fit: contain;
 }
   

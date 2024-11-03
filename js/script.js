@@ -296,17 +296,15 @@ class ChessPuzzleSolver {
                 this.checkSolutionButton.classList.add('active');
             }
             
-            // Inicializar el panel de evaluación
             if (this.evalContent) {
+                this.evalContent.style.display = 'block';
                 this.evalContent.innerHTML = `
                     <div class="evaluation-panel">
-                        <div class="eval-header">Análisis de Stockfish</div>
                         <div class="eval-content">
                             <p>Iniciando análisis...</p>
                         </div>
                     </div>
                 `;
-                this.evalContent.style.display = 'block';
             }
             
             if (!this.stockfishReady) {
@@ -392,11 +390,8 @@ class ChessPuzzleSolver {
             const pvIndex = tokens.indexOf('pv');
             const cpIndex = tokens.indexOf('cp');
             const mateIndex = tokens.indexOf('mate');
-            const depthIndex = tokens.indexOf('depth');
             
-            if (pvIndex !== -1 && depthIndex !== -1) {
-                const depth = tokens[depthIndex + 1];
-                
+            if (pvIndex !== -1) {
                 let evaluationText = '';
                 if (cpIndex !== -1) {
                     const evaluation = parseInt(tokens[cpIndex + 1]) / 100;
@@ -406,26 +401,17 @@ class ChessPuzzleSolver {
                     evaluationText = `Mate en ${Math.abs(mateIn)}`;
                 }
 
-                // Convertir la línea principal a notación española
                 const pvMoves = tokens.slice(pvIndex + 1, pvIndex + 6);
                 const formattedLine = this.formatPVLine(pvMoves);
 
                 if (this.evalContent) {
                     this.evalContent.innerHTML = `
                         <div class="evaluation-panel">
-                            <div class="eval-header">Análisis de Stockfish</div>
                             <div class="eval-content">
-                                <p><strong>Evaluación:</strong> ${evaluationText}</p>
-                                <p><strong>Profundidad:</strong> ${depth}</p>
-                                <p><strong>Línea principal:</strong></p>
-                                <div class="pv-line">${formattedLine}</div>
+                                <span><strong>${evaluationText}</strong> ${formattedLine}</span>
                             </div>
                         </div>
                     `;
-
-                    // Asegurar que el panel de evaluación está visible y en la parte superior
-                    this.evalContent.style.display = 'block';
-                    this.evalContent.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }
             }
         }
@@ -445,37 +431,25 @@ class ChessPuzzleSolver {
             const tempGame = new Chess(this.game.fen());
             let formattedLine = '';
             let moveNumber = Math.ceil(tempGame.history().length / 2) + 1;
+            let isFirstMove = true;
 
             moves.forEach((moveUCI, index) => {
                 try {
-                    const from = moveUCI.substring(0, 2);
-                    const to = moveUCI.substring(2, 4);
-                    const promotion = moveUCI.length > 4 ? moveUCI[4] : undefined;
-
                     const move = tempGame.move({
-                        from: from,
-                        to: to,
-                        promotion: promotion
+                        from: moveUCI.substring(0, 2),
+                        to: moveUCI.substring(2, 4),
+                        promotion: moveUCI.length > 4 ? moveUCI[4] : undefined
                     });
 
                     if (move) {
-                        if (index === 0 || tempGame.turn() === 'w') {
+                        // Solo añadir número si es movimiento de blancas
+                        if (tempGame.turn() === 'b' && (isFirstMove || index > 0)) {
                             formattedLine += `${moveNumber}. `;
-                            if (tempGame.turn() === 'w') {
-                                moveNumber++;
-                            }
+                            moveNumber++;
                         }
+                        isFirstMove = false;
 
-                        // Convertir a notación española
-                        let spanishMove = move.san;
-                        Object.entries(piezas).forEach(([piece, symbol]) => {
-                            if (piece !== 'P') {
-                                spanishMove = spanishMove.replace(new RegExp(piece, 'g'), symbol);
-                            }
-                        });
-                        spanishMove = spanishMove.replace('x', ':');
-                        
-                        formattedLine += `${spanishMove} `;
+                        formattedLine += `${this.formatSpanishMove(move.san, piezas)} `;
                     }
                 } catch (error) {
                     console.error('Error al procesar movimiento:', moveUCI, error);
@@ -625,40 +599,65 @@ class ChessPuzzleSolver {
     updateMovesNotation() {
         if (!this.movesNotation) return;
 
-        // Mapeo de piezas a notación española
         const piezas = {
             'K': '♔', // Rey
             'Q': '♕', // Dama
             'R': '♖', // Torre
             'B': '♗', // Alfil
             'N': '♘', // Caballo
-            'P': ''   // Peón (no se indica en notación española)
+            'P': ''   // Peón
         };
 
         let html = '';
-        this.moveHistory.forEach((move, index) => {
-            if (index % 2 === 0) {
-                html += `${Math.floor(index/2 + 1)}. `;
-            }
-
-            // Convertir la notación algebraica a española
-            let spanishMove = move.san;
+        let moveNumber = 1;
+        
+        // Procesar los movimientos en pares
+        for (let i = 0; i < this.moveHistory.length; i += 2) {
+            // Número del movimiento
+            html += `${moveNumber}. `;
             
-            // Reemplazar las letras de las piezas por símbolos
-            Object.entries(piezas).forEach(([piece, symbol]) => {
-                if (piece !== 'P') {
-                    spanishMove = spanishMove.replace(new RegExp(piece, 'g'), symbol);
-                }
-            });
-
-            // Reemplazar 'x' por ':' para capturas
-            spanishMove = spanishMove.replace('x', ':');
-
-            const moveClass = index <= this.currentMoveIndex ? 'move active' : 'move';
-            html += `<span class="${moveClass}">${spanishMove} </span>`;
-        });
+            // Movimiento blanco
+            let whiteMove = this.moveHistory[i];
+            let spanishWhite = this.formatSpanishMove(whiteMove.san, piezas);
+            const whiteMoveClass = i <= this.currentMoveIndex ? 'move active' : 'move';
+            html += `<span class="${whiteMoveClass}">${spanishWhite}</span> `;
+            
+            // Movimiento negro (si existe)
+            if (i + 1 < this.moveHistory.length) {
+                let blackMove = this.moveHistory[i + 1];
+                let spanishBlack = this.formatSpanishMove(blackMove.san, piezas);
+                const blackMoveClass = (i + 1) <= this.currentMoveIndex ? 'move active' : 'move';
+                html += `<span class="${blackMoveClass}">${spanishBlack}</span> `;
+            }
+            
+            moveNumber++;
+        }
 
         this.movesNotation.innerHTML = html;
+    }
+
+    formatSpanishMove(san, piezas) {
+        // Reemplazar piezas con símbolos
+        let spanishMove = san;
+        
+        // Reemplazar capturas 'x' con 'x' (mantenemos la x para capturas)
+        spanishMove = spanishMove.replace('x', 'x');
+        
+        // Reemplazar piezas con símbolos
+        Object.entries(piezas).forEach(([piece, symbol]) => {
+            if (piece !== 'P') {
+                // Reemplazar solo la pieza al inicio del movimiento
+                spanishMove = spanishMove.replace(new RegExp(`^${piece}`), symbol);
+            }
+        });
+
+        // Convertir 'N' a 'C' para caballos (si no se ha convertido a símbolo)
+        spanishMove = spanishMove.replace(/^N/, 'C');
+
+        // Convertir 'B' a 'A' para alfiles (si no se ha convertido a símbolo)
+        spanishMove = spanishMove.replace(/^B/, 'A');
+
+        return spanishMove;
     }
 
     updateNavigationButtons() {
