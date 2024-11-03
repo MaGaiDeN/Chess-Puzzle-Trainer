@@ -585,13 +585,37 @@ class ChessPuzzleSolver {
     updateMovesNotation() {
         if (!this.movesNotation) return;
 
+        // Mapeo de piezas a notación española
+        const piezas = {
+            'K': '♔', // Rey
+            'Q': '♕', // Dama
+            'R': '♖', // Torre
+            'B': '♗', // Alfil
+            'N': '♘', // Caballo
+            'P': ''   // Peón (no se indica en notación española)
+        };
+
         let html = '';
         this.moveHistory.forEach((move, index) => {
             if (index % 2 === 0) {
                 html += `${Math.floor(index/2 + 1)}. `;
             }
+
+            // Convertir la notación algebraica a española
+            let spanishMove = move.san;
+            
+            // Reemplazar las letras de las piezas por símbolos
+            Object.entries(piezas).forEach(([piece, symbol]) => {
+                if (piece !== 'P') {
+                    spanishMove = spanishMove.replace(new RegExp(piece, 'g'), symbol);
+                }
+            });
+
+            // Reemplazar 'x' por ':' para capturas
+            spanishMove = spanishMove.replace('x', ':');
+
             const moveClass = index <= this.currentMoveIndex ? 'move active' : 'move';
-            html += `<span class="${moveClass}">${move.san} </span>`;
+            html += `<span class="${moveClass}">${spanishMove} </span>`;
         });
 
         this.movesNotation.innerHTML = html;
