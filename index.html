@@ -21,34 +21,36 @@
     <link rel="stylesheet" href="./css/styles.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Panel de información -->
-        <div class="info-panel">
-            <div id="dbStats"></div>
-            <div class="db-controls">
-                <input type="file" id="dbFile" accept=".pgn" class="file-input" style="display: none;">
-                <button id="loadDB" class="db-button">
-                    <i class="fas fa-database"></i> Cargar Base de Datos
-                </button>
+    <div class="main-container">
+        <!-- Columna izquierda -->
+        <div class="column left-column">
+            <div class="database-controls">
+                <button id="loadDB" class="load-button">Load DB</button>
+                <input type="file" id="dbFile" accept=".pgn" style="display: none;" />
             </div>
-            <div id="puzzlesList"></div>
             <div id="pgnStatus"></div>
+            <div id="dbStats"></div>
+            <div id="puzzlesList" class="puzzles-list"></div>
         </div>
 
-        <!-- Tablero y controles -->
-        <div class="board-container">
-            <div id="board" style="width: 100%"></div>
-            <div class="navigation-controls">
-                <button id="startBtn" title="Ir al inicio">⏮</button>
-                <button id="prevBtn" title="Movimiento anterior">⏪</button>
-                <button id="nextBtn" title="Siguiente movimiento">⏩</button>
-                <button id="endBtn" title="Ir al final">⏭</button>
+        <!-- Columna central -->
+        <div class="column center-column">
+            <div id="board" class="board"></div>
+            <div class="controls">
+                <div class="navigation-controls">
+                    <button id="startBtn" title="Ir al inicio">⏮</button>
+                    <button id="prevBtn" title="Movimiento anterior">⏪</button>
+                    <button id="nextBtn" title="Siguiente movimiento">⏩</button>
+                    <button id="endBtn" title="Ir al final">⏭</button>
+                </div>
+                <button id="checkSolution" class="engine-button">Activar Stockfish</button>
             </div>
             <div id="movesNotation" class="moves-notation"></div>
-            <div class="main-controls">
-                <button id="checkSolution">Activar Stockfish</button>
-            </div>
-            <div id="engineEvaluation"></div>
+        </div>
+
+        <!-- Columna derecha -->
+        <div class="column right-column">
+            <div id="engineEvaluation" class="engine-evaluation"></div>
         </div>
     </div>
 

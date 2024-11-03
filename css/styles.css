@@ -275,9 +275,286 @@ button.active:hover {
 
 /* Mejorar el espaciado del panel de evaluación */
 .engine-evaluation {
+    width: 100%;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.chess-container {
+    display: flex;
+    flex-direction: column;
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.engine-evaluation {
+    order: 1;
     margin-bottom: 20px;
     padding: 15px;
     background: #f8f9fa;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-} 
+}
+
+.board-container {
+    order: 2;
+    margin: 20px 0;
+}
+
+#board {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.main-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+    min-height: 100vh;
+}
+
+.column {
+    padding: 15px;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+.left-column {
+    flex: 0 0 250px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.center-column {
+    flex: 1;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    align-items: center;
+}
+
+.right-column {
+    flex: 0 0 300px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Estilos del botón de carga */
+.load-button {
+    width: 100%;
+    padding: 10px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-bottom: 15px;
+}
+
+.load-button:hover {
+    background-color: #45a049;
+}
+
+/* Lista de puzzles */
+.puzzles-list {
+    flex: 1;
+    overflow-y: auto;
+    max-height: calc(100vh - 200px);
+}
+
+.board {
+    width: 100%;
+    max-width: 600px;
+}
+
+.controls {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.navigation-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.navigation-controls button {
+    padding: 8px 16px;
+    font-size: 16px;
+    border: none;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.navigation-controls button:disabled {
+    background-color: #cccccc;
+}
+
+.engine-button {
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    background-color: #4CAF50;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.engine-button.active {
+    background-color: #dc3545;
+}
+
+/* Notación de movimientos */
+.moves-notation {
+    padding: 15px;
+    background: white;
+    border-radius: 4px;
+    font-family: "Noto Chess", "DejaVu Sans", Arial, sans-serif;
+    line-height: 1.5;
+    font-size: 16px;
+    min-height: 200px;
+}
+
+.move {
+    cursor: pointer;
+    padding: 2px 4px;
+    font-weight: 500;
+}
+
+.move.active {
+    background-color: #e0e0e0;
+    border-radius: 3px;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .main-container {
+        flex-direction: column;
+    }
+
+    .column {
+        flex: none;
+        width: 100%;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .left-column, .right-column {
+        max-height: 300px;
+    }
+}
+
+.puzzle-item {
+    padding: 10px;
+    margin: 5px 0;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.puzzle-item:hover {
+    background: #e9ecef;
+}
+
+.puzzle-item.active {
+    background: #007bff;
+    color: white;
+}
+
+.puzzle-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.puzzle-description {
+    font-size: 0.9em;
+    color: #666;
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+    .main-container {
+        grid-template-columns: 200px 1fr 200px;
+    }
+}
+
+@media (max-width: 992px) {
+    .main-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .left-column, .right-column {
+        max-width: 600px;
+        margin: 0 auto;
+        width: 100%;
+    }
+}
+
+.chess-main {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 20px;
+}
+
+.engine-evaluation {
+    width: 100%;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.center-column {
+    flex: 1;
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.board {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Panel de evaluación en la columna derecha */
+.engine-evaluation {
+    width: 100%;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 15px;
+    flex: 1;
+}
+
+/* Notación de movimientos en la columna central */
+.moves-notation {
+    width: 100%;
+    padding: 15px;
+    background: white;
+    border-radius: 8px;
+    font-family: "Noto Chess", "DejaVu Sans", Arial, sans-serif;
+    line-height: 1.5;
+    font-size: 16px;
+    min-height: 150px;
+    margin-top: 20px;
+}
+  
