@@ -1,86 +1,67 @@
 class ChessPuzzleSolver {
     constructor() {
-        // Referencias DOM
-        this.boardContainer = document.getElementById('board');
-        this.dbStats = document.getElementById('dbStats');
-        this.puzzlesList = document.getElementById('puzzlesList');
-        this.pgnStatus = document.getElementById('pgnStatus');
-        this.checkSolutionButton = document.getElementById('checkSolution');
-        this.evalContent = document.getElementById('engineEvaluation');
-        this.loadDBButton = document.getElementById('loadDB');
-        this.dbFileInput = document.getElementById('dbFile');
-        this.movesNotation = document.getElementById('movesNotation');
-
-        // Estado inicial
-        this.engineActive = false;
-        this.isAnalyzing = false;
-        this.stockfishReady = false;
-        this.pendingAnalysis = false;
-        this.puzzles = [];
-        this.currentPuzzleIndex = -1;
+        this.allPuzzles = [];
+        this.currentPuzzle = null;
         this.moveHistory = [];
-        this.currentMoveIndex = -1;
-
-        // Inicializar el juego
+        this.puzzlesPerPage = 10;
         this.game = new Chess();
-        
-        // Inicializar el tablero
-        this.initializeBoard();
-        
-        // Inicializar Stockfish
-        this.initializeStockfish();
+        this.solvedPuzzles = new Set();
 
-        // Configurar event listeners
-        this.setupEventListeners();
-    }
+        // Configuración del tablero
+        const config = {
+            draggable: true,
+            position: 'start',
+            onDrop: (source, target) => this.onDrop(source, target),
+            pieceTheme: 'https://lichess1.org/assets/piece/cburnett/{piece}.svg',
+            width: 400
+        };
 
-    setupEventListeners() {
-        // Botón de carga de base de datos
-        if (this.loadDBButton && this.dbFileInput) {
-            this.loadDBButton.addEventListener('click', () => {
-                console.log('Botón Load DB clickeado');
-                this.dbFileInput.click();
-            });
-
-            this.dbFileInput.addEventListener('change', (e) => {
-                console.log('Archivo seleccionado');
-                const file = e.target.files[0];
-                if (file) {
-                    console.log('Cargando archivo:', file.name);
-                    this.loadPuzzlesFromPGN(file);
+        // Inicializar el tablero y cargar puzzles después de que el DOM esté listo
+        window.addEventListener('DOMContentLoaded', () => {
+            this.board = Chessboard('board', config);
+            $(window).resize(() => this.board.resize());
+            
+            // Cargar los puzzles inmediatamente después de inicializar el tablero
+            this.loadPuzzles().then(() => {
+                // Mostrar la primera página de puzzles
+                this.displayPuzzlePage(0);
+                
+                // Cargar el primer puzzle si existe
+                if (this.allPuzzles.length > 0) {
+                    this.loadPuzzle(this.allPuzzles[0]);
                 }
             });
-        }
-
-        // Botón de Stockfish
-        if (this.checkSolutionButton) {
-            this.checkSolutionButton.addEventListener('click', () => {
-                console.log('Botón Stockfish clickeado');
-                this.toggleEngine();
-            });
-        }
-
-        // Botones de navegación
-        document.getElementById('startBtn')?.addEventListener('click', () => this.goToStart());
-        document.getElementById('prevBtn')?.addEventListener('click', () => this.goToPrevious());
-        document.getElementById('nextBtn')?.addEventListener('click', () => this.goToNext());
-        document.getElementById('endBtn')?.addEventListener('click', () => this.goToEnd());
+        });
     }
 
-    initializeBoard() {
-        const config = {
-            position: 'start',
-            draggable: true,
-            onDrop: (source, target) => this.onDrop(source, target),
-            onDragStart: (source, piece) => this.onDragStart(source, piece),
-            onSnapEnd: () => this.onSnapEnd(),
-            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
-        };
-        
-        this.board = Chessboard('board', config);
-        window.addEventListener('resize', () => {
-            if (this.board) this.board.resize();
-        });
+    async loadPuzzles() {
+        try {
+            const response = await fetch('Mate_en_Dos.pgn');
+            const pgnText = await response.text();
+            
+            // Dividir el texto en juegos individuales
+            const games = pgnText.split(/(\[Event)/)
+                .filter(text => text.trim())  // Eliminar líneas vacías
+                .map((text, index) => {
+                    if (index > 0 && !text.startsWith('[Event')) {
+                        return '[Event' + text;
+                    }
+                    return text;
+                })
+                .filter(game => game.includes('[FEN'));  // Asegurar que solo procesamos juegos con FEN
+            
+            console.log('Juegos encontrados:', games.length);
+            
+            this.allPuzzles = this.parsePGNChunk(games);
+            console.log('Puzzles procesados:', this.allPuzzles.length);
+            
+            if (this.allPuzzles.length > 0) {
+                this.displayPuzzlePage(0);
+                this.loadPuzzle(0);
+            }
+        } catch (error) {
+            console.error('Error al cargar los puzzles:', error);
+        }
     }
 
     initializeStockfish() {
@@ -257,13 +238,21 @@ class ChessPuzzleSolver {
         });
     }
 
-    loadPuzzle(index) {
-        if (!this.puzzles || !this.puzzles[index]) return;
+    loadPuzzle(puzzleOrIndex) {
+        let puzzle;
+        if (typeof puzzleOrIndex === 'number') {
+            puzzle = this.allPuzzles[puzzleOrIndex];
+            this.currentPuzzleIndex = puzzleOrIndex;
+        } else {
+            puzzle = puzzleOrIndex;
+            this.currentPuzzleIndex = this.allPuzzles.indexOf(puzzle);
+        }
         
-        console.log('Cargando puzzle:', index);
-        this.currentPuzzleIndex = index;
-        const puzzle = this.puzzles[index];
+        if (!puzzle) return;
         
+        console.log('Cargando puzzle:', puzzle);
+        
+        this.currentPuzzle = puzzle;
         this.game = new Chess(puzzle.fen);
         this.board.position(puzzle.fen);
         console.log('Posición inicial establecida:', puzzle.fen);
@@ -281,8 +270,8 @@ class ChessPuzzleSolver {
         }
         
         this.updateMovesNotation();
-        this.updateNavigationButtons();
-        this.updatePuzzlesList();
+        if (this.updateNavigationButtons) this.updateNavigationButtons();
+        if (this.updatePuzzlesList) this.updatePuzzlesList();
     }
 
     toggleEngine() {
@@ -420,12 +409,8 @@ class ChessPuzzleSolver {
     formatPVLine(moves) {
         try {
             const piezas = {
-                'K': '♔', // Rey
-                'Q': '♕', // Dama
-                'R': '♖', // Torre
-                'B': '♗', // Alfil
-                'N': '♘', // Caballo
-                'P': ''   // Peón
+                'K': '♔', 'Q': '♕', 'R': '♖', 
+                'B': '♗', 'N': '♘', 'P': ''
             };
 
             const tempGame = new Chess(this.game.fen());
@@ -433,132 +418,188 @@ class ChessPuzzleSolver {
             let moveNumber = Math.ceil(tempGame.history().length / 2) + 1;
             let isFirstMove = true;
 
-            moves.forEach((moveUCI, index) => {
-                try {
-                    const move = tempGame.move({
-                        from: moveUCI.substring(0, 2),
-                        to: moveUCI.substring(2, 4),
-                        promotion: moveUCI.length > 4 ? moveUCI[4] : undefined
-                    });
+            moves.forEach((moveUCI) => {
+                const move = tempGame.move({
+                    from: moveUCI.substring(0, 2),
+                    to: moveUCI.substring(2, 4),
+                    promotion: moveUCI.length > 4 ? moveUCI[4] : undefined
+                });
 
-                    if (move) {
-                        // Solo añadir número si es movimiento de blancas
-                        if (tempGame.turn() === 'b' && (isFirstMove || index > 0)) {
-                            formattedLine += `${moveNumber}. `;
-                            moveNumber++;
-                        }
-                        isFirstMove = false;
-
-                        formattedLine += `${this.formatSpanishMove(move.san, piezas)} `;
+                if (move) {
+                    if (isFirstMove || tempGame.turn() === 'w') {
+                        formattedLine += ` ${moveNumber}.`;
+                        if (tempGame.turn() === 'b') moveNumber++;
                     }
-                } catch (error) {
-                    console.error('Error al procesar movimiento:', moveUCI, error);
+                    formattedLine += ` ${move.san}`;
+                    isFirstMove = false;
                 }
             });
 
-            return formattedLine || 'No hay movimientos disponibles';
+            return formattedLine.trim();
         } catch (error) {
-            console.error('Error al formatear línea:', error);
-            return 'Error al mostrar la línea';
+            console.error('Error en formatPVLine:', error);
+            return '';
         }
     }
 
-    goToStart() {
-        console.log('goToStart llamado');
-        if (this.currentMoveIndex === -1) return;
-        
-        this.currentMoveIndex = -1;
-        const initialFen = this.puzzles[this.currentPuzzleIndex]?.fen || 'start';
-        this.game = new Chess(initialFen);
-        this.board.position(initialFen);
-        
-        console.log('Posición inicial establecida:', initialFen);
-        
-        this.updateMovesNotation();
-        this.updateNavigationButtons();
+    makeOpponentMove() {
+        try {
+            const moveIndex = this.moveHistory.length;
+            const opponentMoveStr = this.currentPuzzle.moves[moveIndex];
+            console.log('Realizando movimiento del oponente:', opponentMoveStr);
 
-        if (this.engineActive) {
-            this.analyzePosition();
+            // Encontrar el movimiento en el formato correcto
+            const possibleMoves = this.game.moves({ verbose: true });
+            const opponentMove = possibleMoves.find(m => {
+                const moveStr = this.game.move(m).san;
+                this.game.undo();
+                return moveStr.replace(/[+#]$/, '').trim() === opponentMoveStr.replace(/[+#]$/, '').trim();
+            });
+
+            if (opponentMove) {
+                // Realizar el movimiento
+                const move = this.game.move(opponentMove);
+                this.moveHistory.push(move);
+                this.updateMovesNotation();
+
+                // Animar el movimiento en el tablero
+                const config = {
+                    duration: 300,
+                    onComplete: () => {
+                        if (moveIndex < this.currentPuzzle.moves.length - 1) {
+                            console.log('Esperando siguiente movimiento del jugador...');
+                        }
+                    }
+                };
+
+                this.board.move(`${opponentMove.from}-${opponentMove.to}`, config);
+            } else {
+                console.error('No se pudo encontrar el movimiento del oponente:', opponentMoveStr);
+            }
+        } catch (error) {
+            console.error('Error en makeOpponentMove:', error);
         }
     }
 
-    goToPrevious() {
-        console.log('goToPrevious llamado');
-        if (this.currentMoveIndex < 0) return;
-        
-        this.currentMoveIndex--;
-        const initialFen = this.puzzles[this.currentPuzzleIndex]?.fen || 'start';
-        this.game = new Chess(initialFen);
-        
-        for (let i = 0; i <= this.currentMoveIndex; i++) {
-            const move = this.moveHistory[i];
-            console.log(`Reproduciendo movimiento ${i + 1}:`, move.san);
-            this.game.move(move);
-        }
-        
-        this.board.position(this.game.fen());
-        console.log('Nueva posición FEN:', this.game.fen());
-        
-        this.updateMovesNotation();
-        this.updateNavigationButtons();
-
-        if (this.engineActive) {
-            this.analyzePosition();
+    updateMovesNotation() {
+        const movesElement = document.getElementById('movesList');
+        if (movesElement) {
+            movesElement.innerHTML = this.moveHistory.map(m => m.san).join(' ');
         }
     }
 
-    goToNext() {
-        console.log('goToNext llamado');
-        if (this.currentMoveIndex >= this.moveHistory.length - 1) return;
-        
-        this.currentMoveIndex++;
-        const move = this.moveHistory[this.currentMoveIndex];
-        console.log(`Realizando movimiento:`, move.san);
-        
-        this.game.move(move);
-        this.board.position(this.game.fen());
-        console.log('Nueva posición FEN:', this.game.fen());
-        
-        this.updateMovesNotation();
-        this.updateNavigationButtons();
-
-        if (this.engineActive) {
-            this.analyzePosition();
-        }
+    showMessage(message) {
+        alert(message);
     }
 
-    goToEnd() {
-        console.log('goToEnd llamado');
-        if (this.currentMoveIndex >= this.moveHistory.length - 1) return;
+    undoLastMove(message) {
+        setTimeout(() => {
+            this.showMessage(message);
+            this.game.undo();
+            this.moveHistory.pop();
+            this.updateMovesNotation();
+            this.board.position(this.game.fen());
+        }, 100);
+    }
+
+    parsePGNChunk(games) {
+        return games.map((gameString, index) => {
+            const fenMatch = gameString.match(/\[FEN "(.*?)"\]/);
+            const titleMatch = gameString.match(/\[White "(.*?)"\]/);
+            
+            // Extraer el movimiento de la notación
+            const moveMatch = gameString.match(/1\.(.*?)\*/);
+            let moves = [];
+            
+            if (moveMatch) {
+                // Limpiar y separar los movimientos
+                moves = [moveMatch[1].trim()];
+            }
+
+            let description = 'Sin descripción';
+            if (titleMatch) {
+                const title = titleMatch[1].toLowerCase();
+                if (title.includes('mate in one')) {
+                    description = 'Mate en uno';
+                } else if (title.includes('mate in two')) {
+                    description = 'Mate en dos';
+                }
+            }
+
+            if (fenMatch && moves.length > 0) {
+                return {
+                    id: `Puzzle ${index + 1}`,
+                    fen: fenMatch[1],
+                    moves: moves,
+                    description: description,
+                    index: index + 1
+                };
+            }
+            return null;
+        }).filter(puzzle => puzzle !== null);
+    }
+
+    displayPuzzlePage(pageNumber) {
+        const startIndex = pageNumber * this.puzzlesPerPage;
+        const endIndex = startIndex + this.puzzlesPerPage;
+        const puzzlesForPage = this.allPuzzles.slice(startIndex, endIndex);
+        const totalPages = Math.ceil(this.allPuzzles.length / this.puzzlesPerPage);
         
-        const initialFen = this.puzzles[this.currentPuzzleIndex]?.fen || 'start';
-        this.game = new Chess(initialFen);
-        
-        this.moveHistory.forEach((move, index) => {
-            console.log(`Reproduciendo movimiento ${index + 1}:`, move.san);
-            this.game.move(move);
+        const puzzlesList = document.getElementById('puzzlesList');
+        if (!puzzlesList) return;
+
+        // Header con información y navegación
+        let html = `
+            <div class="puzzles-header">
+                <div>Puzzles (${this.allPuzzles.length})</div>
+                <div>Página ${pageNumber + 1} de ${totalPages}</div>
+            </div>
+            <div class="pagination">
+                <button ${pageNumber === 0 ? 'disabled' : ''} 
+                        onclick="app.displayPuzzlePage(0)">
+                    « Inicio
+                </button>
+                <button ${pageNumber === 0 ? 'disabled' : ''} 
+                        onclick="app.displayPuzzlePage(${pageNumber - 1})">
+                    ‹ Anterior
+                </button>
+                <span class="page-info">${pageNumber + 1} / ${totalPages}</span>
+                <button ${pageNumber >= totalPages - 1 ? 'disabled' : ''} 
+                        onclick="app.displayPuzzlePage(${pageNumber + 1})">
+                    Siguiente ›
+                </button>
+                <button ${pageNumber >= totalPages - 1 ? 'disabled' : ''} 
+                        onclick="app.displayPuzzlePage(${totalPages - 1})">
+                    Final »
+                </button>
+            </div>
+        `;
+
+        // Lista de puzzles
+        puzzlesForPage.forEach((puzzle, index) => {
+            const absoluteIndex = startIndex + index;
+            const isActive = absoluteIndex === this.currentPuzzleIndex;
+            const isSolved = this.solvedPuzzles.has(absoluteIndex);
+            
+            html += `
+                <div class="puzzle-item ${isActive ? 'active' : ''} ${isSolved ? 'solved' : ''}" 
+                     data-index="${absoluteIndex}">
+                    <div class="puzzle-title">Puzzle ${puzzle.index}</div>
+                    <div class="puzzle-description">${puzzle.description}</div>
+                </div>
+            `;
         });
-        
-        this.currentMoveIndex = this.moveHistory.length - 1;
-        this.board.position(this.game.fen());
-        console.log('Posición final FEN:', this.game.fen());
-        
-        this.updateMovesNotation();
-        this.updateNavigationButtons();
 
-        if (this.engineActive) {
-            this.analyzePosition();
-        }
-    }
+        puzzlesList.innerHTML = html;
 
-    onDragStart(source, piece) {
-        if (this.game.game_over()) return false;
-        
-        if ((this.game.turn() === 'w' && piece.search(/^b/) !== -1) ||
-            (this.game.turn() === 'b' && piece.search(/^w/) !== -1)) {
-            return false;
-        }
-        return true;
+        // Agregar event listeners a los items
+        const items = puzzlesList.querySelectorAll('.puzzle-item');
+        items.forEach(item => {
+            item.addEventListener('click', () => {
+                const index = parseInt(item.dataset.index);
+                this.loadPuzzle(index);
+            });
+        });
     }
 
     onDrop(source, target) {
@@ -571,126 +612,91 @@ class ChessPuzzleSolver {
 
             if (move === null) return 'snapback';
 
-            if (this.currentMoveIndex < this.moveHistory.length - 1) {
-                this.moveHistory = this.moveHistory.slice(0, this.currentMoveIndex + 1);
-            }
-
             this.moveHistory.push(move);
-            this.currentMoveIndex++;
-
             this.updateMovesNotation();
-            this.updateNavigationButtons();
 
-            if (this.engineActive) {
-                this.analyzePosition();
+            const isMateInTwo = this.currentPuzzle.description === 'Mate en dos';
+            
+            if (isMateInTwo) {
+                // Separar los movimientos del mate en dos
+                const fullMoves = this.currentPuzzle.moves[0];
+                console.log('Movimientos completos:', fullMoves);
+                
+                // Extraer los movimientos usando regex
+                const movePattern = /(\S+)\s+(\S+)\s+2\.(\S+)/;
+                const matches = fullMoves.match(movePattern);
+                
+                if (matches) {
+                    const firstMove = matches[1];    // Primer movimiento (ej: Qg6+)
+                    const opponentMove = matches[2]; // Respuesta (ej: Qxg6)
+                    const mateMove = matches[3];     // Movimiento de mate (ej: Rxg6#)
+                    
+                    console.log('Primer movimiento esperado:', firstMove);
+                    console.log('Respuesta del oponente:', opponentMove);
+                    console.log('Movimiento de mate:', mateMove);
+                    
+                    const moveIndex = this.moveHistory.length - 1;
+                    const cleanMove = move.san;
+                    
+                    if (moveIndex === 0) {
+                        // Verificar primer movimiento
+                        if (cleanMove === firstMove) {
+                            // Hacer el movimiento del oponente
+                            setTimeout(() => {
+                                const move = this.game.move(opponentMove);
+                                if (move) {
+                                    this.moveHistory.push(move);
+                                    this.updateMovesNotation();
+                                    this.board.position(this.game.fen());
+                                }
+                            }, 500);
+                        } else {
+                            this.undoLastMove('¡Movimiento incorrecto! Intenta de nuevo.');
+                        }
+                    } else if (moveIndex === 2) {
+                        // Verificar movimiento de mate
+                        if (cleanMove === mateMove) {
+                            this.solvedPuzzles.add(this.currentPuzzleIndex);
+                            setTimeout(() => {
+                                const nextIndex = this.currentPuzzleIndex + 1;
+                                if (nextIndex < this.allPuzzles.length) {
+                                    this.loadPuzzle(nextIndex);
+                                    const nextPage = Math.floor(nextIndex / this.puzzlesPerPage);
+                                    this.displayPuzzlePage(nextPage);
+                                }
+                            }, 500);
+                        } else {
+                            this.undoLastMove('¡Movimiento incorrecto! Intenta de nuevo.');
+                        }
+                    }
+                }
+            } else {
+                // Lógica para mates en uno (sin cambios)
+                const expectedMove = this.currentPuzzle.moves[0];
+                const cleanMove = move.san;
+                const cleanExpectedMove = expectedMove.replace(/\s*\*$/, '').trim();
+
+                if (cleanMove === cleanExpectedMove) {
+                    this.solvedPuzzles.add(this.currentPuzzleIndex);
+                    setTimeout(() => {
+                        const nextIndex = this.currentPuzzleIndex + 1;
+                        if (nextIndex < this.allPuzzles.length) {
+                            this.loadPuzzle(nextIndex);
+                            const nextPage = Math.floor(nextIndex / this.puzzlesPerPage);
+                            this.displayPuzzlePage(nextPage);
+                        }
+                    }, 500);
+                } else {
+                    this.undoLastMove('¡Movimiento incorrecto! Intenta de nuevo.');
+                }
             }
 
-            return move;
         } catch (error) {
             console.error('Error en onDrop:', error);
             return 'snapback';
         }
     }
-
-    onSnapEnd() {
-        this.board.position(this.game.fen());
-    }
-
-    updateMovesNotation() {
-        if (!this.movesNotation) return;
-
-        const piezas = {
-            'K': '♔', // Rey
-            'Q': '♕', // Dama
-            'R': '♖', // Torre
-            'B': '♗', // Alfil
-            'N': '♘', // Caballo
-            'P': ''   // Peón
-        };
-
-        let html = '';
-        let moveNumber = 1;
-        
-        // Procesar los movimientos en pares
-        for (let i = 0; i < this.moveHistory.length; i += 2) {
-            // Número del movimiento
-            html += `${moveNumber}. `;
-            
-            // Movimiento blanco
-            let whiteMove = this.moveHistory[i];
-            let spanishWhite = this.formatSpanishMove(whiteMove.san, piezas);
-            const whiteMoveClass = i <= this.currentMoveIndex ? 'move active' : 'move';
-            html += `<span class="${whiteMoveClass}">${spanishWhite}</span> `;
-            
-            // Movimiento negro (si existe)
-            if (i + 1 < this.moveHistory.length) {
-                let blackMove = this.moveHistory[i + 1];
-                let spanishBlack = this.formatSpanishMove(blackMove.san, piezas);
-                const blackMoveClass = (i + 1) <= this.currentMoveIndex ? 'move active' : 'move';
-                html += `<span class="${blackMoveClass}">${spanishBlack}</span> `;
-            }
-            
-            moveNumber++;
-        }
-
-        this.movesNotation.innerHTML = html;
-    }
-
-    formatSpanishMove(san, piezas) {
-        // Reemplazar piezas con símbolos
-        let spanishMove = san;
-        
-        // Reemplazar capturas 'x' con 'x' (mantenemos la x para capturas)
-        spanishMove = spanishMove.replace('x', 'x');
-        
-        // Reemplazar piezas con símbolos
-        Object.entries(piezas).forEach(([piece, symbol]) => {
-            if (piece !== 'P') {
-                // Reemplazar solo la pieza al inicio del movimiento
-                spanishMove = spanishMove.replace(new RegExp(`^${piece}`), symbol);
-            }
-        });
-
-        // Convertir 'N' a 'C' para caballos (si no se ha convertido a símbolo)
-        spanishMove = spanishMove.replace(/^N/, 'C');
-
-        // Convertir 'B' a 'A' para alfiles (si no se ha convertido a símbolo)
-        spanishMove = spanishMove.replace(/^B/, 'A');
-
-        return spanishMove;
-    }
-
-    updateNavigationButtons() {
-        const startBtn = document.getElementById('startBtn');
-        const prevBtn = document.getElementById('prevBtn');
-        const nextBtn = document.getElementById('nextBtn');
-        const endBtn = document.getElementById('endBtn');
-
-        if (startBtn) startBtn.disabled = this.currentMoveIndex < 0;
-        if (prevBtn) prevBtn.disabled = this.currentMoveIndex < 0;
-        if (nextBtn) nextBtn.disabled = this.currentMoveIndex >= this.moveHistory.length - 1;
-        if (endBtn) endBtn.disabled = this.currentMoveIndex >= this.moveHistory.length - 1;
-    }
-
-    cleanup() {
-        if (this.stockfish) {
-            this.stockfish.postMessage('quit');
-            this.stockfish.terminate();
-            this.stockfishReady = false;
-            this.isAnalyzing = false;
-        }
-    }
 }
 
-// Inicializar cuando el DOM esté listo
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM cargado, inicializando aplicación');
-    window.chessPuzzleSolver = new ChessPuzzleSolver();
-});
-
-// Limpiar recursos al cerrar la ventana
-window.addEventListener('beforeunload', () => {
-    if (window.chessPuzzleSolver) {
-        window.chessPuzzleSolver.cleanup();
-    }
-}); 
+// Inicializar la aplicación
+const app = new ChessPuzzleSolver(); 
