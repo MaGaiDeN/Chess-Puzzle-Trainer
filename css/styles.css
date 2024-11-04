@@ -35,7 +35,7 @@ body {
 }
 
 #board {
-    width: 100%;
+    width: 600px;
     max-width: 600px;
     margin: 0 auto;
     touch-action: none;
@@ -758,5 +758,30 @@ button.active:hover {
 .puzzle-item.solved.active {
     background-color: #c8e6c9;
     border-left: 3px solid #2196F3;
+}
+
+.board-column {
+    flex: 2;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+#board {
+    width: 500px;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    #board {
+        width: 500px;
+    }
+}
+
+@media (max-width: 768px) {
+    #board {
+        width: 90vw; /* 90% del ancho de la ventana */
+        max-width: 400px;
+    }
 }
   
