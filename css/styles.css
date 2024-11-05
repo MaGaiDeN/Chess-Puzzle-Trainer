@@ -361,11 +361,29 @@ body.dragging {
 .error-message {
     background-color: #ffebee;
     color: #c62828;
-    padding: 15px;
+    padding: 20px;
     border-radius: 4px;
     text-align: center;
     margin: 20px;
     border: 1px solid #ef9a9a;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.error-message button {
+    background: #c62828;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s ease;
+}
+
+.error-message button:hover {
+    background: #b71c1c;
 }
 
 .navigation-controls {

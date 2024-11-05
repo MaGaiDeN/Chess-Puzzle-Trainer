@@ -254,20 +254,54 @@ class ChessPuzzleSolver {
     async loadPuzzles() {
         try {
             console.log('Cargando archivo PGN');
-            const response = await fetch('./mate_en_dos.pgn');
+            // Detectar si estamos en GitHub Pages
+            const isGitHubPages = window.location.hostname.includes('github.io');
+            // Ajustar la ruta según el entorno
+            const pgnPath = isGitHubPages ? 
+                '/Chess-Puzzle-Trainer/mate_en_dos.pgn' : 
+                './mate_en_dos.pgn';
+                
+            console.log('Intentando cargar PGN desde:', pgnPath);
+            
+            const response = await fetch(pgnPath);
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                // Si falla, intentar con la ruta alternativa
+                console.log('Primer intento fallido, probando ruta alternativa');
+                const altResponse = await fetch('./mate_en_dos.pgn');
+                if (!altResponse.ok) {
+                    throw new Error(`HTTP error! status: ${altResponse.status}`);
+                }
+                return await this.parsePGNData(await altResponse.text());
             }
+            
             const data = await response.text();
-            console.log('Contenido del PGN:', data);
-            this.allPuzzles = this.parsePGN(data);
-            console.log('Puzzles parseados:', this.allPuzzles.length);
-            return this.allPuzzles;
+            return this.parsePGNData(data);
         } catch (error) {
             console.error('Error cargando puzzles:', error);
-            this.allPuzzles = [];
+            // Mostrar error al usuario
+            const boardColumn = document.querySelector('.board-column');
+            if (boardColumn) {
+                boardColumn.innerHTML = `
+                    <div class="error-message">
+                        Error cargando los puzzles. 
+                        Por favor, verifica la conexión y recarga la página.
+                        <button onclick="location.reload()">Recargar</button>
+                    </div>
+                `;
+            }
             return [];
         }
+    }
+
+    // Separar el parsing para mejor manejo de errores
+    parsePGNData(data) {
+        if (!data || data.trim().length === 0) {
+            throw new Error('Archivo PGN vacío o inválido');
+        }
+        console.log('PGN cargado, parseando...');
+        this.allPuzzles = this.parsePGN(data);
+        console.log('Puzzles parseados:', this.allPuzzles.length);
+        return this.allPuzzles;
     }
 
     parsePGN(pgn) {
