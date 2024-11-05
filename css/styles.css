@@ -23,6 +23,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: flex-start;
+    touch-action: none;
 }
 
 #board {
@@ -207,5 +208,16 @@ body {
     .logo {
         max-width: 150px;
     }
+}
+
+/* Añadir al CSS existente */
+body.dragging {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+}
+
+.board-column {
+    touch-action: none; /* Previene el scroll al arrastrar en el tablero */
 }
   

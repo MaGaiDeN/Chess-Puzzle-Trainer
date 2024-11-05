@@ -7,18 +7,34 @@ class ChessPuzzleSolver {
         this.game = new Chess();
         this.solvedPuzzles = new Set();
 
-        // Configuración del tablero
-        const config = {
+        this.boardConfig = {
             draggable: true,
             position: 'start',
-            onDrop: (source, target) => this.onDrop(source, target),
             pieceTheme: 'https://lichess1.org/assets/piece/cburnett/{piece}.svg',
-            width: 400
+            onDragStart: (source, piece, position, orientation) => {
+                document.body.classList.add('dragging');
+                return this.onDragStart(source, piece);
+            },
+            onDrop: (source, target) => {
+                document.body.classList.remove('dragging');
+                return this.onDrop(source, target);
+            },
+            onSnapEnd: () => {
+                document.body.classList.remove('dragging');
+                this.onSnapEnd();
+            }
         };
+
+        const board = document.getElementById('board');
+        board.addEventListener('touchmove', (e) => {
+            if (this.isDragging) {
+                e.preventDefault();
+            }
+        }, { passive: false });
 
         // Inicializar el tablero y cargar puzzles después de que el DOM esté listo
         window.addEventListener('DOMContentLoaded', () => {
-            this.board = Chessboard('board', config);
+            this.board = Chessboard('board', this.boardConfig);
             $(window).resize(() => this.board.resize());
             
             // Cargar los puzzles inmediatamente después de inicializar el tablero
@@ -603,6 +619,7 @@ class ChessPuzzleSolver {
     }
 
     onDrop(source, target) {
+        this.isDragging = false;
         try {
             const move = this.game.move({
                 from: source,
@@ -696,6 +713,18 @@ class ChessPuzzleSolver {
             return 'snapback';
         }
     }
+
+    onDragStart(source, piece) {
+        this.isDragging = true;
+        // ... resto del código existente ...
+    }
+
+    onSnapEnd() {
+        this.isDragging = false;
+        // ... resto del código existente ...
+    }
+
+    isDragging = false;
 }
 
 // Inicializar la aplicación
