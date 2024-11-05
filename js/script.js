@@ -43,26 +43,26 @@ class ChessPuzzleSolver {
         const moves = this.currentPuzzle.moves[0];
         console.log('Secuencia completa:', moves);
 
-        // Si termina en # y no tiene más movimientos, es mate en uno
-        if (moves.trim().match(/^1\.[A-Za-z][a-zA-Z0-9x]+#\s*\*/)) {
-            console.log('Mate en uno detectado');
-            const firstMove = moves.match(/^1\.([A-Za-z][a-zA-Z0-9x]+#)/)?.[1]?.trim();
-            this.currentPuzzle.type = 'mate-in-one';
-            
-            return {
-                firstMove,
-                opponentResponse: null,
-                mateMove: null
-            };
+        // Si es mate en uno
+        if (this.currentPuzzle.mateType === 'Mate en uno') {
+            const moveMatch = moves.match(/^1\.([A-Za-z0-9=\+#x]+)/);
+            if (moveMatch) {
+                const firstMove = moveMatch[1].trim();
+                console.log('Mate en uno detectado:', firstMove);
+                return {
+                    firstMove,
+                    opponentResponse: null,
+                    mateMove: null
+                };
+            }
         }
 
-        // Para mates en dos - mejorar la extracción de movimientos
-        const moveRegex = /1\.([A-Za-z][a-zA-Z0-9x]+\+?)\s+([A-Za-z][a-zA-Z0-9x]+)\s+2\.([A-Za-z][a-zA-Z0-9x]+#)/;
+        // Para mates en dos - nuevo formato con comentarios
+        const moveRegex = /1\.([A-Za-z0-9]+).*?1\.{3}([A-Za-z0-9]+)\s+2\.([A-Za-z0-9#]+)/;
         const matches = moves.match(moveRegex);
         
         if (matches) {
             const [_, firstMove, opponentResponse, mateMove] = matches;
-            
             console.log('Mate en dos detectado:', {
                 primero: firstMove,
                 respuesta: opponentResponse,
@@ -76,21 +76,30 @@ class ChessPuzzleSolver {
             };
         }
         
-        // Si no se pudo extraer la secuencia completa, intentar extraer por partes
-        const firstMove = moves.match(/^1\.([A-Za-z][a-zA-Z0-9x]+\+?)/)?.[1]?.trim();
-        const opponentResponse = moves.match(/(?:1\.\.\.|Kx?h7)\s*([A-Za-z][a-zA-Z0-9x]+)/)?.[1]?.trim();
-        const mateMove = moves.match(/2\.([A-Za-z][a-zA-Z0-9x]+#)/)?.[1]?.trim();
+        // Intentar formato alternativo
+        const altRegex = /1\.([A-Za-z0-9]+).*?([A-Za-z0-9]+)\s+2\.([A-Za-z0-9#]+)/;
+        const altMatches = moves.match(altRegex);
         
-        console.log('Mate en dos detectado (parsing alternativo):', {
-            primero: firstMove,
-            respuesta: opponentResponse,
-            mate: mateMove
-        });
+        if (altMatches) {
+            const [_, firstMove, opponentResponse, mateMove] = altMatches;
+            console.log('Mate en dos detectado (formato alternativo):', {
+                primero: firstMove,
+                respuesta: opponentResponse,
+                mate: mateMove
+            });
+            
+            return {
+                firstMove: firstMove.trim(),
+                opponentResponse: opponentResponse.trim(),
+                mateMove: mateMove.trim()
+            };
+        }
         
+        console.log('No se pudo parsear la secuencia de movimientos');
         return {
-            firstMove,
-            opponentResponse: opponentResponse || 'Kxh7', // Fallback para este caso específico
-            mateMove
+            firstMove: moves.match(/1\.([A-Za-z0-9]+)/)[1],
+            opponentResponse: moves.match(/([A-Za-z0-9]+)\s+2\./)[1],
+            mateMove: moves.match(/2\.([A-Za-z0-9#]+)/)[1]
         };
     }
 
@@ -211,15 +220,54 @@ class ChessPuzzleSolver {
     handleMove(move) {
         console.log('Movimiento realizado:', move.san);
 
-        // Para mate en uno, verificar inmediatamente
-        if (this.currentPuzzle.type === 'mate-in-one') {
-            if (this.game.in_checkmate()) {
-                console.log('¡Mate en uno conseguido!');
-                this.handlePuzzleCompletion();
+        if (!this.currentMoves) {
+            console.error('No hay movimientos definidos');
+            return 'snapback';
+        }
+
+        // Para mate en uno
+        if (this.currentPuzzle.mateType === 'Mate en uno') {
+            const expectedMove = this.currentMoves.firstMove;
+            if (move.san === expectedMove) {
+                if (this.game.in_checkmate()) {
+                    console.log('¡Mate en uno conseguido!');
+                    this.handlePuzzleCompletion();
+                }
             } else {
-                console.log('No es mate');
+                console.log('Movimiento incorrecto');
                 this.game.undo();
                 return 'snapback';
+            }
+        } 
+        // Para mate en dos
+        else if (this.currentPuzzle.mateType === 'Mate en dos') {
+            if (!this.waitingForMate) {
+                if (move.san === this.currentMoves.firstMove) {
+                    console.log('Primer movimiento correcto');
+                    this.waitingForMate = true;
+                    
+                    // Hacer el movimiento de respuesta del oponente
+                    setTimeout(() => {
+                        const opponentMove = this.game.move(this.currentMoves.opponentResponse);
+                        if (opponentMove) {
+                            console.log('Respuesta del oponente:', opponentMove.san);
+                            this.board.position(this.game.fen());
+                        }
+                    }, 500);
+                } else {
+                    console.log('Primer movimiento incorrecto');
+                    this.game.undo();
+                    return 'snapback';
+                }
+            } else {
+                if (move.san === this.currentMoves.mateMove && this.game.in_checkmate()) {
+                    console.log('¡Mate en dos conseguido!');
+                    this.handlePuzzleCompletion();
+                } else {
+                    console.log('No es mate o movimiento incorrecto');
+                    this.game.undo();
+                    return 'snapback';
+                }
             }
         }
 
