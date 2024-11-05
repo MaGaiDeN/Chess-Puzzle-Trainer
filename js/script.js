@@ -37,6 +37,9 @@ class ChessPuzzleSolver {
         // Actualizar UI
         this.updatePuzzleDisplay();
         this.waitingForMate = false;
+        
+        // Actualizar información del puzzle
+        this.updateGameInfo();
     }
 
     handleMateInTwo() {
@@ -270,6 +273,9 @@ class ChessPuzzleSolver {
                 }
             }
         }
+
+        // Actualizar información después de cada movimiento
+        this.updateGameInfo();
 
         return true;
     }
@@ -705,6 +711,19 @@ class ChessPuzzleSolver {
                 }
             });
         });
+    }
+
+    updateGameInfo() {
+        const turnIndicator = document.getElementById('turnIndicator');
+        const puzzleType = document.getElementById('puzzleType');
+        
+        // Actualizar turno
+        const turn = this.game.turn() === 'w' ? 'Blancas' : 'Negras';
+        turnIndicator.textContent = turn;
+        turnIndicator.className = 'value ' + (turn === 'Blancas' ? 'white' : 'black');
+        
+        // Actualizar tipo de puzzle
+        puzzleType.textContent = this.currentPuzzle.mateType;
     }
 }
 
