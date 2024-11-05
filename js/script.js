@@ -7,6 +7,8 @@ class ChessPuzzleSolver {
         this.currentPage = 1;
         this.game = new Chess();
         this.waitingForMate = false;
+        this.saveProgress = false;
+        this.playerName = '';
         
         this.initializeApp();
     }
@@ -231,6 +233,9 @@ class ChessPuzzleSolver {
         try {
             console.log('Iniciando carga de aplicación');
             
+            // Mostrar el diálogo de bienvenida antes de continuar
+            await this.showWelcomeDialog();
+            
             // Configurar el botón de reset
             this.setupResetButton();
             
@@ -257,12 +262,14 @@ class ChessPuzzleSolver {
     setupResetButton() {
         const resetButton = document.getElementById('resetButton');
         if (resetButton) {
-            resetButton.addEventListener('click', () => {
+            resetButton.addEventListener('click', async () => {
                 if (confirm('¿Estás seguro de que quieres reiniciar todo tu progreso? Esta acción no se puede deshacer.')) {
-                    // Limpiar localStorage
-                    localStorage.removeItem('chessPuzzleProgress');
+                    // Limpiar localStorage del usuario actual si existe
+                    if (this.playerName) {
+                        localStorage.removeItem(`chessPuzzleProgress_${this.playerName}`);
+                    }
                     
-                    // Reiniciar el progreso en memoria
+                    // Reiniciar variables de progreso
                     this.userProgress = {
                         solvedPuzzles: [],
                         statistics: {
@@ -270,6 +277,11 @@ class ChessPuzzleSolver {
                             correctFirstTry: 0
                         }
                     };
+                    this.saveProgress = false;
+                    this.playerName = '';
+                    
+                    // Mostrar diálogo de bienvenida nuevamente
+                    await this.showWelcomeDialog();
                     
                     // Actualizar la UI
                     this.updateProgressDisplay();
@@ -283,30 +295,32 @@ class ChessPuzzleSolver {
     }
 
     async loadPuzzles() {
-        try {
-            console.log('Cargando archivo PGN');
-            // Detectar si estamos en GitHub Pages
+        const getBasePath = () => {
             const isGitHubPages = window.location.hostname.includes('github.io');
-            // Ajustar la ruta según el entorno
-            const pgnPath = isGitHubPages ? 
-                '/Chess-Puzzle-Trainer/mate_en_dos.pgn' : 
-                './mate_en_dos.pgn';
-                
-            console.log('Intentando cargar PGN desde:', pgnPath);
+            if (isGitHubPages) {
+                return '/Chess-Puzzle-Trainer';
+            } else {
+                // En desarrollo local, usa la ruta relativa desde la raíz
+                return '.';
+            }
+        };
+
+        try {
+            const basePath = getBasePath();
+            const url = `${basePath}/mate_en_dos.pgn`; // Removido /puzzles/
+            console.log('Intentando cargar desde:', url); // Para debugging
             
-            const response = await fetch(pgnPath);
+            const response = await fetch(url);
+            
             if (!response.ok) {
-                // Si falla, intentar con la ruta alternativa
-                console.log('Primer intento fallido, probando ruta alternativa');
-                const altResponse = await fetch('./mate_en_dos.pgn');
-                if (!altResponse.ok) {
-                    throw new Error(`HTTP error! status: ${altResponse.status}`);
-                }
-                return await this.parsePGNData(await altResponse.text());
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.text();
-            return this.parsePGNData(data);
+            
+            this.allPuzzles = this.parsePGN(data);
+            console.log('Puzzles parseados:', this.allPuzzles.length);
+            return this.allPuzzles;
         } catch (error) {
             console.error('Error cargando puzzles:', error);
             // Mostrar error al usuario
@@ -322,17 +336,6 @@ class ChessPuzzleSolver {
             }
             return [];
         }
-    }
-
-    // Separar el parsing para mejor manejo de errores
-    parsePGNData(data) {
-        if (!data || data.trim().length === 0) {
-            throw new Error('Archivo PGN vacío o inválido');
-        }
-        console.log('PGN cargado, parseando...');
-        this.allPuzzles = this.parsePGN(data);
-        console.log('Puzzles parseados:', this.allPuzzles.length);
-        return this.allPuzzles;
     }
 
     parsePGN(pgn) {
@@ -452,6 +455,22 @@ class ChessPuzzleSolver {
     }
 
     updateProgressDisplay() {
+        const playerInfo = document.getElementById('playerInfo');
+        
+        if (this.saveProgress && this.playerName) {
+            playerInfo.className = 'player-info';
+            playerInfo.innerHTML = `
+                <span class="label">Jugador</span>
+                <span class="name">${this.playerName}</span>
+            `;
+        } else {
+            playerInfo.className = 'player-info guest-mode';
+            playerInfo.innerHTML = `
+                <span class="label">Modo</span>
+                <span class="name">Sin Guardar</span>
+            `;
+        }
+        
         console.log('Actualizando display de progreso');
         const totalPuzzles = this.allPuzzles.length;
         const solvedCount = this.userProgress.solvedPuzzles.length;
@@ -488,12 +507,8 @@ class ChessPuzzleSolver {
     }
 
     saveUserProgress() {
-        console.log('Guardando progreso:', this.userProgress);
-        try {
-            localStorage.setItem('chessPuzzleProgress', JSON.stringify(this.userProgress));
-            console.log('Progreso guardado exitosamente');
-        } catch (error) {
-            console.error('Error al guardar progreso:', error);
+        if (this.saveProgress && this.playerName) {
+            localStorage.setItem(`chessPuzzleProgress_${this.playerName}`, JSON.stringify(this.userProgress));
         }
     }
 
@@ -563,6 +578,43 @@ class ChessPuzzleSolver {
             this.loadPuzzle(0);
             this.displayPuzzlePage(1);
         }
+    }
+
+    showWelcomeDialog() {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('welcomeModal');
+            const nameInput = document.getElementById('playerName');
+            const saveButton = document.getElementById('startWithSaving');
+            const skipButton = document.getElementById('startWithoutSaving');
+
+            modal.style.display = 'flex';
+
+            skipButton.addEventListener('click', () => {
+                this.saveProgress = false;
+                this.playerName = '';
+                modal.style.display = 'none';
+                this.updateProgressDisplay(); // Actualizar para mostrar "Modo sin guardar"
+                resolve();
+            });
+
+            saveButton.addEventListener('click', () => {
+                const name = nameInput.value.trim();
+                if (name) {
+                    this.saveProgress = true;
+                    this.playerName = name;
+                    // Cargar progreso previo si existe
+                    const savedProgress = localStorage.getItem(`chessPuzzleProgress_${this.playerName}`);
+                    if (savedProgress) {
+                        this.userProgress = JSON.parse(savedProgress);
+                    }
+                    modal.style.display = 'none';
+                    this.updateProgressDisplay(); // Actualizar para mostrar el nombre
+                    resolve();
+                } else {
+                    alert('Por favor, introduce tu nombre para guardar el progreso');
+                }
+            });
+        });
     }
 }
 

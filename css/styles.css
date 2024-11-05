@@ -212,6 +212,7 @@ body {
 .logo {
     max-width: 200px;
     height: auto;
+    border-radius: 12px;
 }
 
 /* Ajustar responsive */
@@ -470,5 +471,149 @@ body.dragging {
 .reset-button:active {
     transform: translateY(1px);
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 2rem;
+    border-radius: 8px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+}
+
+.player-input {
+    width: 100%;
+    padding: 10px;
+    margin: 1rem 0;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.primary-button, .secondary-button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.primary-button {
+    background-color: #2196f3;
+    color: white;
+}
+
+.primary-button:hover {
+    background-color: #1976d2;
+}
+
+.secondary-button {
+    background-color: #e0e0e0;
+    color: #333;
+}
+
+.secondary-button:hover {
+    background-color: #d0d0d0;
+}
+
+.stats-container {
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+    border-radius: 12px;
+    margin: 1.5rem 0;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+}
+
+.player-info {
+    text-align: center;
+    padding: 1.2rem;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid #e9ecef;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.player-info .label {
+    display: block;
+    font-size: 1rem;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.player-info .name {
+    display: block;
+    font-size: 2rem;
+    color: #1a237e;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    background: linear-gradient(45deg, #1a237e, #283593);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 2px 4px rgba(26,35,126,0.1);
+}
+
+.player-info.guest-mode .name {
+    font-size: 1.5rem;
+    color: #78909c;
+    background: none;
+    -webkit-text-fill-color: initial;
+    font-weight: 600;
+}
+
+.player-info::before {
+    content: '👤';  /* Emoji de usuario */
+    display: block;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.player-info .label {
+    display: block;
+    font-size: 0.875rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.player-info .name {
+    display: block;
+    font-size: 1.5rem;
+    color: #2c3e50;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-family: 'Montserrat', sans-serif;
+}
+
+.player-info.guest-mode {
+    color: #6c757d;
+    font-style: italic;
 }
   

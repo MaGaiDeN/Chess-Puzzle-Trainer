@@ -16,6 +16,10 @@
             <div class="logo-container">
                 <img src="./images/logo.webp" alt="Chess Puzzle Trainer" class="logo">
             </div>
+            <div class="stats-container">
+                <div id="playerInfo" class="player-info"></div>
+                <!-- Aquí irán las demás estadísticas -->
+            </div>
             <button id="resetButton" class="reset-button">Reiniciar Progreso</button>
         </div>
         <div class="column board-column">
@@ -24,6 +28,17 @@
         <div class="column puzzles-column">
             <div id="puzzlesList" class="puzzles-list">
                 <!-- El contenido se genera dinámicamente -->
+            </div>
+        </div>
+    </div>
+    <div id="welcomeModal" class="modal">
+        <div class="modal-content">
+            <h2>¡Bienvenido al Entrenador de Puzzles de Ajedrez!</h2>
+            <p>Para guardar tu progreso, introduce tu nombre:</p>
+            <input type="text" id="playerName" placeholder="Tu nombre" class="player-input">
+            <div class="modal-buttons">
+                <button id="startWithoutSaving" class="secondary-button">Continuar sin guardar</button>
+                <button id="startWithSaving" class="primary-button">Guardar progreso</button>
             </div>
         </div>
     </div>
