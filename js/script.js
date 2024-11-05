@@ -300,15 +300,14 @@ class ChessPuzzleSolver {
             if (isGitHubPages) {
                 return '/Chess-Puzzle-Trainer';
             } else {
-                // En desarrollo local, usa la ruta relativa desde la raíz
                 return '.';
             }
         };
 
         try {
             const basePath = getBasePath();
-            const url = `${basePath}/mate_en_dos.pgn`; // Removido /puzzles/
-            console.log('Intentando cargar desde:', url); // Para debugging
+            const url = `${basePath}/Mate_en_Dos.pgn`;
+            console.log('Intentando cargar desde:', url);
             
             const response = await fetch(url);
             
