@@ -113,10 +113,18 @@ class ChessPuzzleSolver {
     onDrop(source, target) {
         console.log('Intentando mover de', source, 'a', target);
         
-        const move = this.game.move({
+        // Verificar si es un movimiento de promoción
+        const isPromotion = (target.charAt(1) === '8' || target.charAt(1) === '1') 
+                           && this.game.get(source).type === 'p';
+
+        if (isPromotion) {
+            return this.handlePromotion(source, target);
+        }
+
+        // Movimiento normal sin promoción
+        let move = this.game.move({
             from: source,
-            to: target,
-            promotion: 'q'
+            to: target
         });
 
         if (move === null) {
@@ -124,63 +132,98 @@ class ChessPuzzleSolver {
             return 'snapback';
         }
 
-        console.log('Movimiento realizado:', move.san);
-        console.log('Estado actual:', {
-            tipo: this.currentPuzzle.type,
-            esperandoMate: this.waitingForMate,
-            movimientoEsperado: this.waitingForMate ? this.currentMoves.mateMove : this.currentMoves.firstMove,
-            respuestaEsperada: this.currentMoves.opponentResponse
+        return this.handleMove(move);
+    }
+
+    handlePromotion(source, target) {
+        const promotionDialog = document.createElement('div');
+        promotionDialog.className = 'promotion-dialog';
+        promotionDialog.innerHTML = `
+            <div class="promotion-pieces">
+                <div class="promotion-piece" data-piece="q">♕</div>
+                <div class="promotion-piece" data-piece="r">♖</div>
+                <div class="promotion-piece" data-piece="b">♗</div>
+                <div class="promotion-piece" data-piece="n">♘</div>
+            </div>
+        `;
+
+        // Añadir estilos al diálogo
+        document.head.insertAdjacentHTML('beforeend', `
+            <style>
+                .promotion-dialog {
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: white;
+                    padding: 10px;
+                    border: 2px solid #333;
+                    border-radius: 5px;
+                    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+                    z-index: 1000;
+                }
+                .promotion-pieces {
+                    display: flex;
+                    gap: 10px;
+                }
+                .promotion-piece {
+                    width: 40px;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 30px;
+                    cursor: pointer;
+                    border: 1px solid #ccc;
+                    border-radius: 3px;
+                }
+                .promotion-piece:hover {
+                    background: #eee;
+                }
+            </style>
+        `);
+
+        document.body.appendChild(promotionDialog);
+
+        return new Promise((resolve) => {
+            promotionDialog.addEventListener('click', (e) => {
+                const piece = e.target.closest('.promotion-piece');
+                if (piece) {
+                    const promotionPiece = piece.dataset.piece;
+                    document.body.removeChild(promotionDialog);
+
+                    const move = this.game.move({
+                        from: source,
+                        to: target,
+                        promotion: promotionPiece
+                    });
+
+                    if (move === null) {
+                        resolve('snapback');
+                    } else {
+                        resolve(this.handleMove(move));
+                    }
+                }
+            });
         });
+    }
 
-        // Limpiar los símbolos # y + para la comparación
-        const cleanMove = move.san.replace(/[+#]/, '');
-        const cleanExpected = this.waitingForMate ? 
-            this.currentMoves.mateMove?.replace(/[+#]/, '') : 
-            this.currentMoves.firstMove?.replace(/[+#]/, '');
+    handleMove(move) {
+        console.log('Movimiento realizado:', move.san);
 
-        if (cleanMove === cleanExpected) {
-            console.log('¡Movimiento correcto!');
-            
-            if (this.currentPuzzle.type === 'mate-in-one') {
-                if (this.game.in_checkmate()) {
-                    console.log('¡Mate en uno conseguido!');
-                    this.handlePuzzleCompletion();
-                }
-                return true;
-            }
-            
-            // Para mates en dos
-            if (this.waitingForMate) {
-                if (this.game.in_checkmate()) {
-                    console.log('¡Mate en dos conseguido!');
-                    this.handlePuzzleCompletion();
-                    this.waitingForMate = false;
-                }
+        // Para mate en uno, verificar inmediatamente
+        if (this.currentPuzzle.type === 'mate-in-one') {
+            if (this.game.in_checkmate()) {
+                console.log('¡Mate en uno conseguido!');
+                this.handlePuzzleCompletion();
             } else {
-                // Hacer el movimiento del oponente inmediatamente
-                this.waitingForMate = true;
-                if (this.currentMoves.opponentResponse) {
-                    setTimeout(() => {
-                        console.log('Realizando respuesta del oponente:', this.currentMoves.opponentResponse);
-                        const oppMove = this.game.move(this.currentMoves.opponentResponse);
-                        if (oppMove) {
-                            this.board.position(this.game.fen());
-                            console.log('Respuesta del oponente realizada');
-                        } else {
-                            console.error('Error al realizar el movimiento del oponente:', this.currentMoves.opponentResponse);
-                        }
-                    }, 500);
-                } else {
-                    console.error('No se encontró respuesta del oponente');
-                }
+                console.log('No es mate');
+                this.game.undo();
+                return 'snapback';
             }
-            return true;
         }
 
-        console.log('Movimiento incorrecto');
-        this.game.undo();
-        this.board.position(this.game.fen());
-        return false;
+        return true;
     }
 
     makeOpponentMove() {
