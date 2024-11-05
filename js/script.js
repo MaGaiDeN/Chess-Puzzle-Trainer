@@ -1,731 +1,508 @@
 class ChessPuzzleSolver {
     constructor() {
+        console.log('Iniciando ChessPuzzleSolver');
+        this.userProgress = this.loadUserProgress();
+        this.firstAttempt = true;
         this.allPuzzles = [];
-        this.currentPuzzle = null;
-        this.moveHistory = [];
-        this.puzzlesPerPage = 10;
+        this.currentPage = 1;
         this.game = new Chess();
-        this.solvedPuzzles = new Set();
-
-        this.boardConfig = {
-            draggable: true,
-            position: 'start',
-            pieceTheme: 'https://lichess1.org/assets/piece/cburnett/{piece}.svg',
-            onDragStart: (source, piece, position, orientation) => {
-                document.body.classList.add('dragging');
-                return this.onDragStart(source, piece);
-            },
-            onDrop: (source, target) => {
-                document.body.classList.remove('dragging');
-                return this.onDrop(source, target);
-            },
-            onSnapEnd: () => {
-                document.body.classList.remove('dragging');
-                this.onSnapEnd();
-            }
-        };
-
-        const board = document.getElementById('board');
-        board.addEventListener('touchmove', (e) => {
-            if (this.isDragging) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-
-        // Inicializar el tablero y cargar puzzles después de que el DOM esté listo
-        window.addEventListener('DOMContentLoaded', () => {
-            this.board = Chessboard('board', this.boardConfig);
-            $(window).resize(() => this.board.resize());
-            
-            // Cargar los puzzles inmediatamente después de inicializar el tablero
-            this.loadPuzzles().then(() => {
-                // Mostrar la primera página de puzzles
-                this.displayPuzzlePage(0);
-                
-                // Cargar el primer puzzle si existe
-                if (this.allPuzzles.length > 0) {
-                    this.loadPuzzle(this.allPuzzles[0]);
-                }
-            });
-        });
+        this.waitingForMate = false;
+        
+        this.initializeApp();
     }
 
-    async loadPuzzles() {
-        try {
-            const response = await fetch('Mate_en_Dos.pgn');
-            const pgnText = await response.text();
-            
-            // Dividir el texto en juegos individuales
-            const games = pgnText.split(/(\[Event)/)
-                .filter(text => text.trim())  // Eliminar líneas vacías
-                .map((text, index) => {
-                    if (index > 0 && !text.startsWith('[Event')) {
-                        return '[Event' + text;
-                    }
-                    return text;
-                })
-                .filter(game => game.includes('[FEN'));  // Asegurar que solo procesamos juegos con FEN
-            
-            console.log('Juegos encontrados:', games.length);
-            
-            this.allPuzzles = this.parsePGNChunk(games);
-            console.log('Puzzles procesados:', this.allPuzzles.length);
-            
-            if (this.allPuzzles.length > 0) {
-                this.displayPuzzlePage(0);
-                this.loadPuzzle(0);
-            }
-        } catch (error) {
-            console.error('Error al cargar los puzzles:', error);
-        }
-    }
-
-    initializeStockfish() {
-        try {
-            console.log('Iniciando inicialización de Stockfish');
-            this.stockfish = new Worker('./js/stockfish/stockfish.js');
-            
-            this.stockfish.onmessage = (event) => {
-                const message = event.data;
-                console.log('Mensaje de Stockfish:', message);
-
-                if (message === 'uciok') {
-                    this.stockfish.postMessage('isready');
-                }
-                else if (message === 'readyok') {
-                    console.log('Stockfish está listo');
-                    this.stockfishReady = true;
-                    if (this.pendingAnalysis) {
-                        this.pendingAnalysis = false;
-                        this.analyzePosition();
-                    }
-                }
-                else {
-                    this.handleStockfishMessage(event);
-                }
-            };
-            
-            this.stockfish.onerror = (error) => {
-                console.error('Error de Stockfish:', error);
-                this.stockfishReady = false;
-            };
-
-            this.stockfish.postMessage('uci');
-            
-        } catch (error) {
-            console.error('Error al inicializar Stockfish:', error);
-            this.stockfishReady = false;
-        }
-    }
-
-    loadPuzzlesFromPGN(file) {
-        console.log('Iniciando carga de archivo PGN');
-        const reader = new FileReader();
+    loadPuzzle(index) {
+        console.log('Cargando puzzle:', index);
+        this.currentPuzzle = this.allPuzzles[index];
         
-        reader.onload = (e) => {
-            try {
-                console.log('Archivo leído, procesando contenido');
-                const pgnContent = e.target.result;
-                console.log('Tamaño del contenido:', pgnContent.length);
-                
-                const games = this.parsePGN(pgnContent);
-                console.log('Juegos encontrados:', games.length);
-
-                this.puzzles = games.map((game, index) => ({
-                    id: game.headers.White || `Puzzle ${index + 1}`,
-                    fen: game.headers.FEN || 'start',
-                    moves: game.moves || [],
-                    description: game.headers.Annotator || 'Sin descripción',
-                    index: index + 1
-                }));
-
-                console.log('Puzzles procesados:', this.puzzles.length);
-
-                this.updateDatabaseInfo();
-                this.updatePuzzlesList();
-                
-                if (this.puzzles.length > 0) {
-                    console.log('Cargando primer puzzle');
-                    this.loadPuzzle(0);
-                }
-
-            } catch (error) {
-                console.error('Error al procesar el archivo PGN:', error);
-                if (this.pgnStatus) {
-                    this.pgnStatus.innerHTML = `
-                        <div class="error-message">
-                            Error al procesar el archivo: ${error.message}
-                        </div>
-                    `;
-                }
-            }
-        };
-
-        reader.onerror = (error) => {
-            console.error('Error al leer el archivo:', error);
-            if (this.pgnStatus) {
-                this.pgnStatus.innerHTML = `
-                    <div class="error-message">
-                        Error al leer el archivo: ${error}
-                    </div>
-                `;
-            }
-        };
-
-        reader.readAsText(file);
-    }
-
-    parsePGN(pgnContent) {
-        console.log('Iniciando parseo de PGN');
-        const games = [];
-        const gameStrings = pgnContent.split(/\n\s*\n(?=\[)/);
-        console.log('Juegos encontrados:', gameStrings.length);
-
-        gameStrings.forEach((gameString, index) => {
-            if (!gameString.trim()) return;
-
-            try {
-                const game = {
-                    headers: {},
-                    moves: []
-                };
-
-                const headerRegex = /\[(.*?)\s+"(.*?)"\]/g;
-                let match;
-                while ((match = headerRegex.exec(gameString)) !== null) {
-                    game.headers[match[1]] = match[2];
-                }
-
-                const moveText = gameString.replace(headerRegex, '').trim();
-                if (moveText) {
-                    game.moves = moveText.split(/\d+\./).filter(Boolean).map(m => m.trim());
-                }
-
-                if (game.headers.FEN) {
-                    games.push(game);
-                    console.log(`Juego ${index + 1} procesado correctamente`);
-                }
-            } catch (error) {
-                console.error(`Error al parsear juego ${index}:`, error);
-            }
-        });
-
-        console.log('Total de juegos válidos:', games.length);
-        return games;
-    }
-
-    updateDatabaseInfo() {
-        if (this.dbStats && this.puzzles) {
-            console.log('Actualizando información de la base de datos');
-            this.dbStats.innerHTML = `
-                <div class="database-info">
-                    <h3>Base de Datos de Puzzles</h3>
-                    <p><strong>Total de problemas:</strong> ${this.puzzles.length}</p>
-                    <p><strong>Fecha de carga:</strong> ${new Date().toLocaleString()}</p>
-                </div>
-            `;
-        }
-    }
-
-    updatePuzzlesList() {
-        if (!this.puzzlesList || !this.puzzles) return;
-        
-        console.log('Actualizando lista de puzzles');
-        let html = `<div class="puzzles-header">Puzzles (${this.puzzles.length})</div>`;
-        
-        this.puzzles.forEach((puzzle, index) => {
-            html += `
-                <div class="puzzle-item ${index === this.currentPuzzleIndex ? 'active' : ''}" 
-                     data-index="${index}">
-                    <div class="puzzle-title">Puzzle ${puzzle.index}</div>
-                    <div class="puzzle-description">${puzzle.description}</div>
-                </div>
-            `;
-        });
-
-        this.puzzlesList.innerHTML = html;
-
-        const items = this.puzzlesList.querySelectorAll('.puzzle-item');
-        items.forEach(item => {
-            item.addEventListener('click', () => {
-                const index = parseInt(item.dataset.index);
-                this.loadPuzzle(index);
-            });
-        });
-    }
-
-    loadPuzzle(puzzleOrIndex) {
-        let puzzle;
-        if (typeof puzzleOrIndex === 'number') {
-            puzzle = this.allPuzzles[puzzleOrIndex];
-            this.currentPuzzleIndex = puzzleOrIndex;
-        } else {
-            puzzle = puzzleOrIndex;
-            this.currentPuzzleIndex = this.allPuzzles.indexOf(puzzle);
-        }
-        
-        if (!puzzle) return;
-        
-        console.log('Cargando puzzle:', puzzle);
-        
-        this.currentPuzzle = puzzle;
-        this.game = new Chess(puzzle.fen);
-        this.board.position(puzzle.fen);
-        console.log('Posición inicial establecida:', puzzle.fen);
-        
-        this.moveHistory = [];
-        this.currentMoveIndex = -1;
-        
-        this.engineActive = false;
-        if (this.checkSolutionButton) {
-            this.checkSolutionButton.textContent = 'Activar Stockfish';
-            this.checkSolutionButton.classList.remove('active');
-        }
-        if (this.evalContent) {
-            this.evalContent.innerHTML = '';
-        }
-        
-        this.updateMovesNotation();
-        if (this.updateNavigationButtons) this.updateNavigationButtons();
-        if (this.updatePuzzlesList) this.updatePuzzlesList();
-    }
-
-    toggleEngine() {
-        console.log('toggleEngine llamado');
-        this.engineActive = !this.engineActive;
-        
-        if (this.engineActive) {
-            console.log('Activando motor');
-            if (this.checkSolutionButton) {
-                this.checkSolutionButton.textContent = 'Desactivar Stockfish';
-                this.checkSolutionButton.classList.add('active');
-            }
-            
-            if (this.evalContent) {
-                this.evalContent.style.display = 'block';
-                this.evalContent.innerHTML = `
-                    <div class="evaluation-panel">
-                        <div class="eval-content">
-                            <p>Iniciando análisis...</p>
-                        </div>
-                    </div>
-                `;
-            }
-            
-            if (!this.stockfishReady) {
-                this.initializeStockfish();
-            }
-            this.analyzePosition();
-        } else {
-            console.log('Desactivando motor');
-            if (this.checkSolutionButton) {
-                this.checkSolutionButton.textContent = 'Activar Stockfish';
-                this.checkSolutionButton.classList.remove('active');
-            }
-            if (this.evalContent) {
-                this.evalContent.style.display = 'none';
-            }
-            if (this.stockfish) {
-                this.stockfish.postMessage('stop');
-                this.isAnalyzing = false;
-            }
-        }
-    }
-
-    analyzePosition() {
-        console.log('analyzePosition llamado');
-        
-        if (!this.engineActive || !this.evalContent) {
-            console.log('Análisis cancelado - motor inactivo o sin contenedor');
+        if (!this.currentPuzzle) {
+            console.error('Puzzle no encontrado:', index);
             return;
         }
 
-        if (!this.stockfishReady) {
-            console.log('Stockfish no está listo, poniendo análisis en espera');
-            this.pendingAnalysis = true;
-            return;
-        }
-
-        try {
-            if (this.isAnalyzing) {
-                console.log('Deteniendo análisis anterior');
-                this.stockfish.postMessage('stop');
-            }
-
-            this.isAnalyzing = true;
-            const fen = this.game.fen();
-            console.log('Posición a analizar:', fen);
-
-            this.evalContent.innerHTML = `
-                <div class="evaluation-panel">
-                    <div class="eval-header">Stockfish</div>
-                    <div class="eval-content">
-                        <p>Analizando posición...</p>
-                    </div>
-                </div>
-            `;
-
-            this.stockfish.postMessage('ucinewgame');
-            this.stockfish.postMessage(`position fen ${fen}`);
-            this.stockfish.postMessage('go depth 20');
-
-        } catch (error) {
-            console.error('Error en analyzePosition:', error);
-            this.isAnalyzing = false;
-            if (this.evalContent) {
-                this.evalContent.innerHTML = `
-                    <div class="evaluation-panel">
-                        <div class="eval-header">Error</div>
-                        <div class="eval-content error-message">
-                            Error al iniciar el análisis: ${error.message}
-                        </div>
-                    </div>
-                `;
-            }
-        }
+        console.log('Puzzle actual:', this.currentPuzzle);
+        
+        // Establecer posición inicial
+        this.game.load(this.currentPuzzle.fen);
+        this.board.position(this.currentPuzzle.fen);
+        
+        // Extraer movimientos
+        this.currentMoves = this.handleMateInTwo();
+        
+        // Resetear primer intento
+        this.firstAttempt = true;
+        
+        // Actualizar UI
+        this.updatePuzzleDisplay();
+        this.waitingForMate = false;
     }
 
-    handleStockfishMessage(event) {
-        const message = event.data;
-        
-        if (typeof message !== 'string') return;
-        
-        if (message.includes('info depth') && message.includes('pv')) {
-            const tokens = message.split(' ');
-            const pvIndex = tokens.indexOf('pv');
-            const cpIndex = tokens.indexOf('cp');
-            const mateIndex = tokens.indexOf('mate');
+    handleMateInTwo() {
+        const moves = this.currentPuzzle.moves[0];
+        console.log('Secuencia completa:', moves);
+
+        // Si termina en # y no tiene más movimientos, es mate en uno
+        if (moves.trim().match(/^1\.[A-Za-z][a-zA-Z0-9x]+#\s*\*/)) {
+            console.log('Mate en uno detectado');
+            const firstMove = moves.match(/^1\.([A-Za-z][a-zA-Z0-9x]+#)/)?.[1]?.trim();
+            this.currentPuzzle.type = 'mate-in-one';
             
-            if (pvIndex !== -1) {
-                let evaluationText = '';
-                if (cpIndex !== -1) {
-                    const evaluation = parseInt(tokens[cpIndex + 1]) / 100;
-                    evaluationText = evaluation >= 0 ? `+${evaluation.toFixed(2)}` : evaluation.toFixed(2);
-                } else if (mateIndex !== -1) {
-                    const mateIn = tokens[mateIndex + 1];
-                    evaluationText = `Mate en ${Math.abs(mateIn)}`;
-                }
-
-                const pvMoves = tokens.slice(pvIndex + 1, pvIndex + 6);
-                const formattedLine = this.formatPVLine(pvMoves);
-
-                if (this.evalContent) {
-                    this.evalContent.innerHTML = `
-                        <div class="evaluation-panel">
-                            <div class="eval-content">
-                                <span><strong>${evaluationText}</strong> ${formattedLine}</span>
-                            </div>
-                        </div>
-                    `;
-                }
-            }
-        }
-    }
-
-    formatPVLine(moves) {
-        try {
-            const piezas = {
-                'K': '♔', 'Q': '♕', 'R': '♖', 
-                'B': '♗', 'N': '♘', 'P': ''
+            return {
+                firstMove,
+                opponentResponse: null,
+                mateMove: null
             };
-
-            const tempGame = new Chess(this.game.fen());
-            let formattedLine = '';
-            let moveNumber = Math.ceil(tempGame.history().length / 2) + 1;
-            let isFirstMove = true;
-
-            moves.forEach((moveUCI) => {
-                const move = tempGame.move({
-                    from: moveUCI.substring(0, 2),
-                    to: moveUCI.substring(2, 4),
-                    promotion: moveUCI.length > 4 ? moveUCI[4] : undefined
-                });
-
-                if (move) {
-                    if (isFirstMove || tempGame.turn() === 'w') {
-                        formattedLine += ` ${moveNumber}.`;
-                        if (tempGame.turn() === 'b') moveNumber++;
-                    }
-                    formattedLine += ` ${move.san}`;
-                    isFirstMove = false;
-                }
-            });
-
-            return formattedLine.trim();
-        } catch (error) {
-            console.error('Error en formatPVLine:', error);
-            return '';
         }
-    }
 
-    makeOpponentMove() {
-        try {
-            const moveIndex = this.moveHistory.length;
-            const opponentMoveStr = this.currentPuzzle.moves[moveIndex];
-            console.log('Realizando movimiento del oponente:', opponentMoveStr);
-
-            // Encontrar el movimiento en el formato correcto
-            const possibleMoves = this.game.moves({ verbose: true });
-            const opponentMove = possibleMoves.find(m => {
-                const moveStr = this.game.move(m).san;
-                this.game.undo();
-                return moveStr.replace(/[+#]$/, '').trim() === opponentMoveStr.replace(/[+#]$/, '').trim();
-            });
-
-            if (opponentMove) {
-                // Realizar el movimiento
-                const move = this.game.move(opponentMove);
-                this.moveHistory.push(move);
-                this.updateMovesNotation();
-
-                // Animar el movimiento en el tablero
-                const config = {
-                    duration: 300,
-                    onComplete: () => {
-                        if (moveIndex < this.currentPuzzle.moves.length - 1) {
-                            console.log('Esperando siguiente movimiento del jugador...');
-                        }
-                    }
-                };
-
-                this.board.move(`${opponentMove.from}-${opponentMove.to}`, config);
-            } else {
-                console.error('No se pudo encontrar el movimiento del oponente:', opponentMoveStr);
-            }
-        } catch (error) {
-            console.error('Error en makeOpponentMove:', error);
-        }
-    }
-
-    updateMovesNotation() {
-        const movesElement = document.getElementById('movesList');
-        if (movesElement) {
-            movesElement.innerHTML = this.moveHistory.map(m => m.san).join(' ');
-        }
-    }
-
-    showMessage(message) {
-        alert(message);
-    }
-
-    undoLastMove(message) {
-        setTimeout(() => {
-            this.showMessage(message);
-            this.game.undo();
-            this.moveHistory.pop();
-            this.updateMovesNotation();
-            this.board.position(this.game.fen());
-        }, 100);
-    }
-
-    parsePGNChunk(games) {
-        return games.map((gameString, index) => {
-            const fenMatch = gameString.match(/\[FEN "(.*?)"\]/);
-            const titleMatch = gameString.match(/\[White "(.*?)"\]/);
-            
-            // Extraer el movimiento de la notación
-            const moveMatch = gameString.match(/1\.(.*?)\*/);
-            let moves = [];
-            
-            if (moveMatch) {
-                // Limpiar y separar los movimientos
-                moves = [moveMatch[1].trim()];
-            }
-
-            let description = 'Sin descripción';
-            if (titleMatch) {
-                const title = titleMatch[1].toLowerCase();
-                if (title.includes('mate in one')) {
-                    description = 'Mate en uno';
-                } else if (title.includes('mate in two')) {
-                    description = 'Mate en dos';
-                }
-            }
-
-            if (fenMatch && moves.length > 0) {
-                return {
-                    id: `Puzzle ${index + 1}`,
-                    fen: fenMatch[1],
-                    moves: moves,
-                    description: description,
-                    index: index + 1
-                };
-            }
-            return null;
-        }).filter(puzzle => puzzle !== null);
-    }
-
-    displayPuzzlePage(pageNumber) {
-        const startIndex = pageNumber * this.puzzlesPerPage;
-        const endIndex = startIndex + this.puzzlesPerPage;
-        const puzzlesForPage = this.allPuzzles.slice(startIndex, endIndex);
-        const totalPages = Math.ceil(this.allPuzzles.length / this.puzzlesPerPage);
+        // Para mates en dos - mejorar la extracción de movimientos
+        const moveRegex = /1\.([A-Za-z][a-zA-Z0-9x]+\+?)\s+([A-Za-z][a-zA-Z0-9x]+)\s+2\.([A-Za-z][a-zA-Z0-9x]+#)/;
+        const matches = moves.match(moveRegex);
         
-        const puzzlesList = document.getElementById('puzzlesList');
-        if (!puzzlesList) return;
-
-        // Header con información y navegación
-        let html = `
-            <div class="puzzles-header">
-                <div>Puzzles (${this.allPuzzles.length})</div>
-                <div>Página ${pageNumber + 1} de ${totalPages}</div>
-            </div>
-            <div class="pagination">
-                <button ${pageNumber === 0 ? 'disabled' : ''} 
-                        onclick="app.displayPuzzlePage(0)">
-                    « Inicio
-                </button>
-                <button ${pageNumber === 0 ? 'disabled' : ''} 
-                        onclick="app.displayPuzzlePage(${pageNumber - 1})">
-                    ‹ Anterior
-                </button>
-                <span class="page-info">${pageNumber + 1} / ${totalPages}</span>
-                <button ${pageNumber >= totalPages - 1 ? 'disabled' : ''} 
-                        onclick="app.displayPuzzlePage(${pageNumber + 1})">
-                    Siguiente ›
-                </button>
-                <button ${pageNumber >= totalPages - 1 ? 'disabled' : ''} 
-                        onclick="app.displayPuzzlePage(${totalPages - 1})">
-                    Final »
-                </button>
-            </div>
-        `;
-
-        // Lista de puzzles
-        puzzlesForPage.forEach((puzzle, index) => {
-            const absoluteIndex = startIndex + index;
-            const isActive = absoluteIndex === this.currentPuzzleIndex;
-            const isSolved = this.solvedPuzzles.has(absoluteIndex);
+        if (matches) {
+            const [_, firstMove, opponentResponse, mateMove] = matches;
             
-            html += `
-                <div class="puzzle-item ${isActive ? 'active' : ''} ${isSolved ? 'solved' : ''}" 
-                     data-index="${absoluteIndex}">
-                    <div class="puzzle-title">Puzzle ${puzzle.index}</div>
-                    <div class="puzzle-description">${puzzle.description}</div>
-                </div>
-            `;
-        });
-
-        puzzlesList.innerHTML = html;
-
-        // Agregar event listeners a los items
-        const items = puzzlesList.querySelectorAll('.puzzle-item');
-        items.forEach(item => {
-            item.addEventListener('click', () => {
-                const index = parseInt(item.dataset.index);
-                this.loadPuzzle(index);
+            console.log('Mate en dos detectado:', {
+                primero: firstMove,
+                respuesta: opponentResponse,
+                mate: mateMove
             });
+            
+            return {
+                firstMove: firstMove.trim(),
+                opponentResponse: opponentResponse.trim(),
+                mateMove: mateMove.trim()
+            };
+        }
+        
+        // Si no se pudo extraer la secuencia completa, intentar extraer por partes
+        const firstMove = moves.match(/^1\.([A-Za-z][a-zA-Z0-9x]+\+?)/)?.[1]?.trim();
+        const opponentResponse = moves.match(/(?:1\.\.\.|Kx?h7)\s*([A-Za-z][a-zA-Z0-9x]+)/)?.[1]?.trim();
+        const mateMove = moves.match(/2\.([A-Za-z][a-zA-Z0-9x]+#)/)?.[1]?.trim();
+        
+        console.log('Mate en dos detectado (parsing alternativo):', {
+            primero: firstMove,
+            respuesta: opponentResponse,
+            mate: mateMove
         });
+        
+        return {
+            firstMove,
+            opponentResponse: opponentResponse || 'Kxh7', // Fallback para este caso específico
+            mateMove
+        };
     }
 
-    onDrop(source, target) {
-        this.isDragging = false;
-        try {
-            const move = this.game.move({
-                from: source,
-                to: target,
-                promotion: 'q'
-            });
-
-            if (move === null) return 'snapback';
-
-            this.moveHistory.push(move);
-            this.updateMovesNotation();
-
-            const isMateInTwo = this.currentPuzzle.description === 'Mate en dos';
-            
-            if (isMateInTwo) {
-                // Separar los movimientos del mate en dos
-                const fullMoves = this.currentPuzzle.moves[0];
-                console.log('Movimientos completos:', fullMoves);
-                
-                // Extraer los movimientos usando regex
-                const movePattern = /(\S+)\s+(\S+)\s+2\.(\S+)/;
-                const matches = fullMoves.match(movePattern);
-                
-                if (matches) {
-                    const firstMove = matches[1];    // Primer movimiento (ej: Qg6+)
-                    const opponentMove = matches[2]; // Respuesta (ej: Qxg6)
-                    const mateMove = matches[3];     // Movimiento de mate (ej: Rxg6#)
-                    
-                    console.log('Primer movimiento esperado:', firstMove);
-                    console.log('Respuesta del oponente:', opponentMove);
-                    console.log('Movimiento de mate:', mateMove);
-                    
-                    const moveIndex = this.moveHistory.length - 1;
-                    const cleanMove = move.san;
-                    
-                    if (moveIndex === 0) {
-                        // Verificar primer movimiento
-                        if (cleanMove === firstMove) {
-                            // Hacer el movimiento del oponente
-                            setTimeout(() => {
-                                const move = this.game.move(opponentMove);
-                                if (move) {
-                                    this.moveHistory.push(move);
-                                    this.updateMovesNotation();
-                                    this.board.position(this.game.fen());
-                                }
-                            }, 500);
-                        } else {
-                            this.undoLastMove('¡Movimiento incorrecto! Intenta de nuevo.');
-                        }
-                    } else if (moveIndex === 2) {
-                        // Verificar movimiento de mate
-                        if (cleanMove === mateMove) {
-                            this.solvedPuzzles.add(this.currentPuzzleIndex);
-                            setTimeout(() => {
-                                const nextIndex = this.currentPuzzleIndex + 1;
-                                if (nextIndex < this.allPuzzles.length) {
-                                    this.loadPuzzle(nextIndex);
-                                    const nextPage = Math.floor(nextIndex / this.puzzlesPerPage);
-                                    this.displayPuzzlePage(nextPage);
-                                }
-                            }, 500);
-                        } else {
-                            this.undoLastMove('¡Movimiento incorrecto! Intenta de nuevo.');
-                        }
-                    }
-                }
-            } else {
-                // Lógica para mates en uno (sin cambios)
-                const expectedMove = this.currentPuzzle.moves[0];
-                const cleanMove = move.san;
-                const cleanExpectedMove = expectedMove.replace(/\s*\*$/, '').trim();
-
-                if (cleanMove === cleanExpectedMove) {
-                    this.solvedPuzzles.add(this.currentPuzzleIndex);
-                    setTimeout(() => {
-                        const nextIndex = this.currentPuzzleIndex + 1;
-                        if (nextIndex < this.allPuzzles.length) {
-                            this.loadPuzzle(nextIndex);
-                            const nextPage = Math.floor(nextIndex / this.puzzlesPerPage);
-                            this.displayPuzzlePage(nextPage);
-                        }
-                    }, 500);
-                } else {
-                    this.undoLastMove('¡Movimiento incorrecto! Intenta de nuevo.');
-                }
-            }
-
-        } catch (error) {
-            console.error('Error en onDrop:', error);
-            return 'snapback';
+    updatePuzzleDisplay() {
+        // Actualizar la lista de puzzles
+        const items = document.querySelectorAll('.puzzle-item');
+        items.forEach(item => item.classList.remove('active'));
+        
+        const currentItem = document.querySelector(`.puzzle-item[onclick*="${this.currentPuzzle.index}"]`);
+        if (currentItem) {
+            currentItem.classList.add('active');
         }
     }
 
     onDragStart(source, piece) {
-        this.isDragging = true;
-        // ... resto del código existente ...
+        // Solo permitir mover piezas blancas
+        return !this.game.game_over() && piece.search(/^w/) !== -1;
+    }
+
+    onDrop(source, target) {
+        console.log('Intentando mover de', source, 'a', target);
+        
+        const move = this.game.move({
+            from: source,
+            to: target,
+            promotion: 'q'
+        });
+
+        if (move === null) {
+            console.log('Movimiento ilegal');
+            return 'snapback';
+        }
+
+        console.log('Movimiento realizado:', move.san);
+        console.log('Estado actual:', {
+            tipo: this.currentPuzzle.type,
+            esperandoMate: this.waitingForMate,
+            movimientoEsperado: this.waitingForMate ? this.currentMoves.mateMove : this.currentMoves.firstMove,
+            respuestaEsperada: this.currentMoves.opponentResponse
+        });
+
+        // Limpiar los símbolos # y + para la comparación
+        const cleanMove = move.san.replace(/[+#]/, '');
+        const cleanExpected = this.waitingForMate ? 
+            this.currentMoves.mateMove?.replace(/[+#]/, '') : 
+            this.currentMoves.firstMove?.replace(/[+#]/, '');
+
+        if (cleanMove === cleanExpected) {
+            console.log('¡Movimiento correcto!');
+            
+            if (this.currentPuzzle.type === 'mate-in-one') {
+                if (this.game.in_checkmate()) {
+                    console.log('¡Mate en uno conseguido!');
+                    this.handlePuzzleCompletion();
+                }
+                return true;
+            }
+            
+            // Para mates en dos
+            if (this.waitingForMate) {
+                if (this.game.in_checkmate()) {
+                    console.log('¡Mate en dos conseguido!');
+                    this.handlePuzzleCompletion();
+                    this.waitingForMate = false;
+                }
+            } else {
+                // Hacer el movimiento del oponente inmediatamente
+                this.waitingForMate = true;
+                if (this.currentMoves.opponentResponse) {
+                    setTimeout(() => {
+                        console.log('Realizando respuesta del oponente:', this.currentMoves.opponentResponse);
+                        const oppMove = this.game.move(this.currentMoves.opponentResponse);
+                        if (oppMove) {
+                            this.board.position(this.game.fen());
+                            console.log('Respuesta del oponente realizada');
+                        } else {
+                            console.error('Error al realizar el movimiento del oponente:', this.currentMoves.opponentResponse);
+                        }
+                    }, 500);
+                } else {
+                    console.error('No se encontró respuesta del oponente');
+                }
+            }
+            return true;
+        }
+
+        console.log('Movimiento incorrecto');
+        this.game.undo();
+        this.board.position(this.game.fen());
+        return false;
+    }
+
+    makeOpponentMove() {
+        console.log('Realizando movimiento del oponente');
+        if (this.currentMoves.opponentResponse) {
+            const move = this.game.move(this.currentMoves.opponentResponse);
+            if (move) {
+                console.log('Movimiento del oponente realizado:', move.san);
+                this.board.position(this.game.fen());
+            } else {
+                console.error('Error al realizar movimiento del oponente');
+            }
+        }
     }
 
     onSnapEnd() {
-        this.isDragging = false;
-        // ... resto del código existente ...
+        this.board.position(this.game.fen());
     }
 
-    isDragging = false;
+    checkMate() {
+        if (this.game.in_checkmate()) {
+            const lastMove = this.game.history({ verbose: true }).slice(-1)[0].san;
+            console.log('Último movimiento:', lastMove);
+            console.log('Movimiento de mate esperado:', this.currentMoves.mateMove);
+            
+            if (lastMove === this.currentMoves.mateMove) {
+                console.log('¡Mate correcto!');
+                this.handlePuzzleCompletion();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    loadUserProgress() {
+        console.log('Cargando progreso del usuario');
+        const savedProgress = localStorage.getItem('chessPuzzleProgress');
+        console.log('Progreso guardado en localStorage:', savedProgress);
+        
+        return savedProgress ? JSON.parse(savedProgress) : {
+            solvedPuzzles: [],
+            statistics: {
+                totalAttempts: 0,
+                correctFirstTry: 0
+            }
+        };
+    }
+
+    async initializeApp() {
+        try {
+            console.log('Iniciando carga de aplicación');
+            
+            // Cargar puzzles
+            await this.loadPuzzles();
+            console.log('Puzzles cargados:', this.allPuzzles.length);
+            
+            // Inicializar tablero
+            this.initBoard();
+            console.log('Tablero inicializado');
+            
+            // Cargar último puzzle resuelto o el primero
+            this.loadLastSolvedPuzzle();
+            
+            // Actualizar estadísticas
+            this.updateProgressDisplay();
+            console.log('Estadísticas actualizadas');
+            
+        } catch (error) {
+            console.error('Error en la inicialización:', error);
+        }
+    }
+
+    async loadPuzzles() {
+        try {
+            console.log('Cargando archivo PGN');
+            const response = await fetch('./mate_en_dos.pgn');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.text();
+            console.log('Contenido del PGN:', data);
+            this.allPuzzles = this.parsePGN(data);
+            console.log('Puzzles parseados:', this.allPuzzles.length);
+            return this.allPuzzles;
+        } catch (error) {
+            console.error('Error cargando puzzles:', error);
+            this.allPuzzles = [];
+            return [];
+        }
+    }
+
+    parsePGN(pgn) {
+        console.log('Parseando PGN');
+        const puzzles = [];
+        const games = pgn.split(/\[Event/);
+        
+        for (let i = 1; i < games.length; i++) {
+            const game = '[Event' + games[i];
+            
+            try {
+                const fenMatch = game.match(/\[FEN "([^"]+)"\]/);
+                const whiteMatch = game.match(/\[White "([^"]+)"\]/);
+                const moveText = game.split(/\]\s*\n\s*\n/)[1];
+                
+                if (fenMatch && moveText) {
+                    const moves = moveText.trim();
+                    // Obtener el tipo de mate del tag White
+                    const mateType = whiteMatch ? whiteMatch[1] : '';
+                    const isMateInOne = mateType.toLowerCase().includes('mate in one');
+                    
+                    // Traducir el tipo de mate
+                    const mateDescription = isMateInOne ? 'Mate en uno' : 'Mate en dos';
+                    
+                    puzzles.push({
+                        id: `Puzzle ${i}`,
+                        fen: fenMatch[1],
+                        moves: [moves],
+                        description: mateDescription,
+                        mateType: mateDescription,
+                        index: i - 1,
+                        type: isMateInOne ? 'mate-in-one' : 'mate-in-two'
+                    });
+                    
+                    console.log(`Puzzle ${i} parseado:`, {
+                        moves: moves,
+                        tipo: mateDescription
+                    });
+                }
+            } catch (e) {
+                console.error(`Error procesando juego ${i}:`, e);
+            }
+        }
+        
+        return puzzles;
+    }
+
+    initBoard() {
+        console.log('Iniciando tablero');
+        this.game = new Chess();
+        this.boardConfig = {
+            draggable: true,
+            position: 'start',
+            pieceTheme: 'https://lichess1.org/assets/piece/cburnett/{piece}.svg',
+            onDragStart: (source, piece) => this.onDragStart(source, piece),
+            onDrop: (source, target) => this.onDrop(source, target),
+            onSnapEnd: () => this.onSnapEnd()
+        };
+        
+        this.board = Chessboard('board', this.boardConfig);
+        console.log('Tablero creado');
+    }
+
+    displayPuzzlePage(pageNumber) {
+        console.log('Mostrando página:', pageNumber);
+        const puzzlesPerPage = 10;
+        const totalPages = Math.ceil(this.allPuzzles.length / puzzlesPerPage);
+        
+        // Asegurar que el número de página es válido
+        pageNumber = Math.max(1, Math.min(pageNumber, totalPages));
+        
+        // Crear navegación simplificada
+        const navigationHtml = `
+            <div class="navigation-controls">
+                <button 
+                    class="nav-button" 
+                    onclick="app.displayPuzzlePage(${pageNumber - 1})"
+                    ${pageNumber === 1 ? 'disabled' : ''}>
+                    <span class="nav-icon">←</span>
+                </button>
+                <span class="page-info">${pageNumber} / ${totalPages}</span>
+                <button 
+                    class="nav-button" 
+                    onclick="app.displayPuzzlePage(${pageNumber + 1})"
+                    ${pageNumber === totalPages ? 'disabled' : ''}>
+                    <span class="nav-icon">→</span>
+                </button>
+            </div>
+        `;
+
+        // Resto del código para mostrar puzzles...
+        const start = (pageNumber - 1) * puzzlesPerPage;
+        const end = start + puzzlesPerPage;
+        const puzzlesForPage = this.allPuzzles.slice(start, end);
+        
+        let puzzlesHtml = '';
+        puzzlesForPage.forEach(puzzle => {
+            const isSolved = this.userProgress.solvedPuzzles.includes(puzzle.id);
+            puzzlesHtml += `
+                <div class="puzzle-item ${isSolved ? 'solved' : ''} ${puzzle === this.currentPuzzle ? 'active' : ''}"
+                     onclick="app.loadPuzzle(${puzzle.index})">
+                    <span class="puzzle-info">
+                        ${puzzle.id}
+                        <span class="mate-type">${puzzle.mateType}</span>
+                    </span>
+                    ${isSolved ? '<span class="solved-mark">✓</span>' : ''}
+                </div>
+            `;
+        });
+
+        const puzzlesList = document.getElementById('puzzlesList');
+        if (puzzlesList) {
+            puzzlesList.innerHTML = navigationHtml + puzzlesHtml;
+        }
+        
+        this.currentPage = pageNumber;
+    }
+
+    updateProgressDisplay() {
+        console.log('Actualizando display de progreso');
+        const totalPuzzles = this.allPuzzles.length;
+        const solvedCount = this.userProgress.solvedPuzzles.length;
+        const accuracy = this.userProgress.statistics.totalAttempts > 0 
+            ? Math.round((this.userProgress.statistics.correctFirstTry / this.userProgress.statistics.totalAttempts) * 100) 
+            : 0;
+
+        const progressHtml = `
+            <div class="progress-stats">
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <div class="stat-value">${solvedCount}/${totalPuzzles}</div>
+                        <div class="stat-label">Puzzles Resueltos</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${accuracy}%</div>
+                        <div class="stat-label">Precisión</div>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${(solvedCount/totalPuzzles)*100}%"></div>
+                </div>
+            </div>
+        `;
+
+        const logoContainer = document.querySelector('.logo-container');
+        if (logoContainer) {
+            const existingStats = document.querySelector('.progress-stats');
+            if (existingStats) {
+                existingStats.remove();
+            }
+            logoContainer.insertAdjacentHTML('afterend', progressHtml);
+        }
+    }
+
+    saveUserProgress() {
+        console.log('Guardando progreso:', this.userProgress);
+        try {
+            localStorage.setItem('chessPuzzleProgress', JSON.stringify(this.userProgress));
+            console.log('Progreso guardado exitosamente');
+        } catch (error) {
+            console.error('Error al guardar progreso:', error);
+        }
+    }
+
+    handlePuzzleCompletion() {
+        console.log('Puzzle completado');
+        
+        // Actualizar progreso
+        if (!this.userProgress.solvedPuzzles.includes(this.currentPuzzle.id)) {
+            this.userProgress.solvedPuzzles.push(this.currentPuzzle.id);
+            if (this.firstAttempt) {
+                this.userProgress.statistics.correctFirstTry++;
+            }
+            this.userProgress.statistics.totalAttempts++;
+            
+            // Guardar y actualizar UI
+            this.saveUserProgress();
+            this.updateProgressDisplay();
+            this.displayPuzzlePage(this.currentPage);
+            
+            console.log('Progreso actualizado:', {
+                puzzlesResueltos: this.userProgress.solvedPuzzles.length,
+                correctosPrimerIntento: this.userProgress.statistics.correctFirstTry,
+                intentosTotales: this.userProgress.statistics.totalAttempts
+            });
+
+            // Cargar siguiente puzzle después de un breve delay
+            setTimeout(() => {
+                const nextIndex = this.currentPuzzle.index + 1;
+                if (this.allPuzzles[nextIndex]) {
+                    this.loadPuzzle(nextIndex);
+                }
+            }, 1000); // Delay de 1 segundo para ver el mate
+        }
+    }
+
+    loadLastSolvedPuzzle() {
+        console.log('Cargando último puzzle resuelto');
+        
+        if (this.userProgress.solvedPuzzles.length > 0) {
+            // Encontrar el índice del último puzzle resuelto
+            const lastSolvedId = this.userProgress.solvedPuzzles[this.userProgress.solvedPuzzles.length - 1];
+            const lastSolvedPuzzle = this.allPuzzles.find(p => p.id === lastSolvedId);
+            
+            if (lastSolvedPuzzle) {
+                const nextPuzzleIndex = lastSolvedPuzzle.index + 1;
+                
+                // Cargar el siguiente puzzle después del último resuelto
+                if (this.allPuzzles[nextPuzzleIndex]) {
+                    console.log('Cargando siguiente puzzle después del último resuelto:', nextPuzzleIndex);
+                    this.loadPuzzle(nextPuzzleIndex);
+                    
+                    // Calcular y mostrar la página correcta
+                    const puzzlesPerPage = 10;
+                    const pageNumber = Math.floor(nextPuzzleIndex / puzzlesPerPage) + 1;
+                    this.displayPuzzlePage(pageNumber);
+                } else {
+                    // Si no hay siguiente, cargar el último
+                    console.log('No hay más puzzles, cargando el último resuelto');
+                    this.loadPuzzle(lastSolvedPuzzle.index);
+                    const pageNumber = Math.floor(lastSolvedPuzzle.index / puzzlesPerPage) + 1;
+                    this.displayPuzzlePage(pageNumber);
+                }
+            }
+        } else {
+            // Si no hay puzzles resueltos, empezar desde el principio
+            console.log('No hay puzzles resueltos, comenzando desde el principio');
+            this.loadPuzzle(0);
+            this.displayPuzzlePage(1);
+        }
+    }
 }
 
-// Inicializar la aplicación
-const app = new ChessPuzzleSolver(); 
+// Inicializar la aplicación cuando la página esté completamente cargada
+window.addEventListener('load', () => {
+    console.log('Página completamente cargada, iniciando aplicación');
+    window.app = new ChessPuzzleSolver();
+}); 
