@@ -231,6 +231,9 @@ class ChessPuzzleSolver {
         try {
             console.log('Iniciando carga de aplicación');
             
+            // Configurar el botón de reset
+            this.setupResetButton();
+            
             // Cargar puzzles
             await this.loadPuzzles();
             console.log('Puzzles cargados:', this.allPuzzles.length);
@@ -248,6 +251,34 @@ class ChessPuzzleSolver {
             
         } catch (error) {
             console.error('Error en la inicialización:', error);
+        }
+    }
+
+    setupResetButton() {
+        const resetButton = document.getElementById('resetButton');
+        if (resetButton) {
+            resetButton.addEventListener('click', () => {
+                if (confirm('¿Estás seguro de que quieres reiniciar todo tu progreso? Esta acción no se puede deshacer.')) {
+                    // Limpiar localStorage
+                    localStorage.removeItem('chessPuzzleProgress');
+                    
+                    // Reiniciar el progreso en memoria
+                    this.userProgress = {
+                        solvedPuzzles: [],
+                        statistics: {
+                            totalAttempts: 0,
+                            correctFirstTry: 0
+                        }
+                    };
+                    
+                    // Actualizar la UI
+                    this.updateProgressDisplay();
+                    this.displayPuzzlePage(1);
+                    this.loadPuzzle(0);
+                    
+                    console.log('Progreso reiniciado completamente');
+                }
+            });
         }
     }
 
