@@ -48,7 +48,7 @@ class ChessPuzzleSolver {
 
         // Si es mate en uno
         if (this.currentPuzzle.mateType === 'Mate en uno') {
-            const moveMatch = moves.match(/^1\.([A-Za-z0-9=\+#x]+)/);
+            const moveMatch = moves.match(/^1\.([A-Za-z0-9x#\+]+)/);
             if (moveMatch) {
                 const firstMove = moveMatch[1].trim();
                 console.log('Mate en uno detectado:', firstMove);
@@ -60,7 +60,7 @@ class ChessPuzzleSolver {
             }
         }
 
-        // Para mates en dos - nuevo formato con comentarios
+        // Para mates en dos - formato con comentarios
         const moveRegex = /1\.([A-Za-z0-9]+).*?1\.{3}([A-Za-z0-9]+)\s+2\.([A-Za-z0-9#]+)/;
         const matches = moves.match(moveRegex);
         
@@ -79,8 +79,8 @@ class ChessPuzzleSolver {
             };
         }
         
-        // Intentar formato alternativo
-        const altRegex = /1\.([A-Za-z0-9]+).*?([A-Za-z0-9]+)\s+2\.([A-Za-z0-9#]+)/;
+        // Intentar formato alternativo con comentarios
+        const altRegex = /1\.([A-Za-z0-9]+)\s*{[^}]*}\s*([A-Za-z0-9]+)\s+2\.([A-Za-z0-9#]+)/;
         const altMatches = moves.match(altRegex);
         
         if (altMatches) {
@@ -99,11 +99,7 @@ class ChessPuzzleSolver {
         }
         
         console.log('No se pudo parsear la secuencia de movimientos');
-        return {
-            firstMove: moves.match(/1\.([A-Za-z0-9]+)/)[1],
-            opponentResponse: moves.match(/([A-Za-z0-9]+)\s+2\./)[1],
-            mateMove: moves.match(/2\.([A-Za-z0-9#]+)/)[1]
-        };
+        return null;
     }
 
     updatePuzzleDisplay() {
@@ -223,27 +219,16 @@ class ChessPuzzleSolver {
     handleMove(move) {
         console.log('Movimiento realizado:', move.san);
 
-        if (!this.currentMoves) {
-            console.error('No hay movimientos definidos');
-            return 'snapback';
-        }
-
-        // Para mate en uno
         if (this.currentPuzzle.mateType === 'Mate en uno') {
-            const expectedMove = this.currentMoves.firstMove;
-            if (move.san === expectedMove) {
-                if (this.game.in_checkmate()) {
-                    console.log('¡Mate en uno conseguido!');
-                    this.handlePuzzleCompletion();
-                }
+            if (move.san === this.currentMoves?.firstMove && this.game.in_checkmate()) {
+                console.log('¡Mate en uno conseguido!');
+                this.handlePuzzleCompletion();
             } else {
-                console.log('Movimiento incorrecto');
+                console.log('No es mate o movimiento incorrecto');
                 this.game.undo();
                 return 'snapback';
             }
-        } 
-        // Para mate en dos
-        else if (this.currentPuzzle.mateType === 'Mate en dos') {
+        } else if (this.currentPuzzle.mateType === 'Mate en dos') {
             if (!this.waitingForMate) {
                 if (move.san === this.currentMoves.firstMove) {
                     console.log('Primer movimiento correcto');
@@ -251,10 +236,20 @@ class ChessPuzzleSolver {
                     
                     // Hacer el movimiento de respuesta del oponente
                     setTimeout(() => {
-                        const opponentMove = this.game.move(this.currentMoves.opponentResponse);
-                        if (opponentMove) {
-                            console.log('Respuesta del oponente:', opponentMove.san);
-                            this.board.position(this.game.fen());
+                        try {
+                            const opponentMove = this.game.move(this.currentMoves.opponentResponse);
+                            if (opponentMove) {
+                                console.log('Respuesta del oponente:', opponentMove.san);
+                                this.board.position(this.game.fen());
+                                this.updateGameInfo();
+                            } else {
+                                console.error('No se pudo realizar el movimiento del oponente');
+                            }
+                        } catch (error) {
+                            console.error('Error al realizar el movimiento del oponente:', error);
+                            this.game.undo();
+                            this.waitingForMate = false;
+                            return 'snapback';
                         }
                     }, 500);
                 } else {
@@ -274,9 +269,7 @@ class ChessPuzzleSolver {
             }
         }
 
-        // Actualizar información después de cada movimiento
         this.updateGameInfo();
-
         return true;
     }
 
