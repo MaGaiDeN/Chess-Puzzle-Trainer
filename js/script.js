@@ -514,7 +514,7 @@ class ChessPuzzleSolver {
         // Asegurar que el número de página es válido
         pageNumber = Math.max(1, Math.min(pageNumber, totalPages));
         
-        // Crear navegación simplificada
+        // Crear navegación
         const navigationHtml = `
             <div class="navigation-controls">
                 <button 
@@ -541,11 +541,10 @@ class ChessPuzzleSolver {
         let puzzlesHtml = '';
         puzzlesForPage.forEach(puzzle => {
             const isSolved = this.userProgress.solvedPuzzles.includes(puzzle.id);
-            const puzzleNumber = puzzle.id.replace('Puzzle ', ''); // Extraer solo el número
             puzzlesHtml += `
                 <div class="puzzle-item ${isSolved ? 'solved' : ''} ${puzzle === this.currentPuzzle ? 'active' : ''}"
                      onclick="app.loadPuzzle(${puzzle.index})">
-                    ${puzzleNumber}${isSolved ? '<span class="solved-mark">✓</span>' : ''}
+                    ${puzzle.id.replace('Puzzle ', '')}${isSolved ? '<span class="solved-mark">✓</span>' : ''}
                 </div>
             `;
         });
@@ -631,42 +630,75 @@ class ChessPuzzleSolver {
             this.saveUserProgress();
             this.updateProgressDisplay();
             
-            // Verificar si todos los puzzles de la página actual están resueltos
+            // Actualizar visualmente el puzzle actual como resuelto
+            const currentPuzzleElement = document.querySelector(`.puzzle-item[onclick*="${this.currentPuzzle.index}"]`);
+            if (currentPuzzleElement) {
+                currentPuzzleElement.classList.add('solved');
+                if (!currentPuzzleElement.querySelector('.solved-mark')) {
+                    currentPuzzleElement.innerHTML += '<span class="solved-mark">✓</span>';
+                }
+            }
+
+            // Verificar si es el último puzzle de la página actual
             const puzzlesPerPage = 10;
             const currentPageStart = (this.currentPage - 1) * puzzlesPerPage;
-            const currentPageEnd = Math.min(currentPageStart + puzzlesPerPage, this.allPuzzles.length);
-            const currentPagePuzzles = this.allPuzzles.slice(currentPageStart, currentPageEnd);
+            const currentPageEnd = currentPageStart + puzzlesPerPage - 1;
             
-            const allCurrentPagePuzzlesSolved = currentPagePuzzles.every(puzzle => 
-                this.userProgress.solvedPuzzles.includes(puzzle.id)
-            );
+            console.log('Verificando cambio de página:', {
+                puzzleActual: this.currentPuzzle.index,
+                finPaginaActual: currentPageEnd
+            });
 
-            // Si todos los puzzles de la página actual están resueltos, avanzar a la siguiente página
-            if (allCurrentPagePuzzlesSolved) {
+            // Si es el último puzzle de la página, avanzar a la siguiente
+            if (this.currentPuzzle.index === currentPageEnd) {
                 const nextPage = this.currentPage + 1;
                 const totalPages = Math.ceil(this.allPuzzles.length / puzzlesPerPage);
                 
                 if (nextPage <= totalPages) {
                     console.log('Avanzando a la siguiente página:', nextPage);
-                    this.displayPuzzlePage(nextPage);
+                    setTimeout(() => {
+                        this.displayPuzzlePage(nextPage);
+                    }, 500);
                 }
-            } else {
-                this.displayPuzzlePage(this.currentPage);
             }
-            
-            console.log('Progreso actualizado:', {
-                puzzlesResueltos: this.userProgress.solvedPuzzles.length,
-                correctosPrimerIntento: this.userProgress.statistics.correctFirstTry,
-                intentosTotales: this.userProgress.statistics.totalAttempts
-            });
 
             // Cargar siguiente puzzle después de un breve delay
             setTimeout(() => {
                 const nextIndex = this.currentPuzzle.index + 1;
                 if (this.allPuzzles[nextIndex]) {
                     this.loadPuzzle(nextIndex);
+                    
+                    // Actualizar la lista de puzzles para reflejar el nuevo puzzle activo
+                    this.updatePuzzlesList();
                 }
             }, 1000);
+        }
+    }
+
+    // Nuevo método para actualizar la lista de puzzles
+    updatePuzzlesList() {
+        const puzzlesPerPage = 10;
+        const start = (this.currentPage - 1) * puzzlesPerPage;
+        const end = start + puzzlesPerPage;
+        const puzzlesForPage = this.allPuzzles.slice(start, end);
+        
+        let puzzlesHtml = '';
+        puzzlesForPage.forEach(puzzle => {
+            const isSolved = this.userProgress.solvedPuzzles.includes(puzzle.id);
+            puzzlesHtml += `
+                <div class="puzzle-item ${isSolved ? 'solved' : ''} ${puzzle === this.currentPuzzle ? 'active' : ''}"
+                     onclick="app.loadPuzzle(${puzzle.index})">
+                    ${puzzle.id.replace('Puzzle ', '')}${isSolved ? '<span class="solved-mark">✓</span>' : ''}
+                </div>
+            `;
+        });
+
+        // Actualizar solo la parte de los puzzles, manteniendo la navegación
+        const puzzlesContainer = document.querySelector('.puzzles-list');
+        if (puzzlesContainer) {
+            // Mantener la navegación y actualizar solo los puzzles
+            const navigation = puzzlesContainer.querySelector('.navigation-controls');
+            puzzlesContainer.innerHTML = (navigation ? navigation.outerHTML : '') + puzzlesHtml;
         }
     }
 
