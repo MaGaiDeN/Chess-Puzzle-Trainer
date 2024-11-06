@@ -60,46 +60,57 @@ class ChessPuzzleSolver {
             }
         }
 
-        // Para mates en dos - formato con comentarios
-        const moveRegex = /1\.([A-Za-z0-9]+).*?1\.{3}([A-Za-z0-9]+)\s+2\.([A-Za-z0-9#]+)/;
-        const matches = moves.match(moveRegex);
-        
-        if (matches) {
-            const [_, firstMove, opponentResponse, mateMove] = matches;
-            console.log('Mate en dos detectado:', {
-                primero: firstMove,
-                respuesta: opponentResponse,
-                mate: mateMove
-            });
+        // Para mates en dos
+        if (this.currentPuzzle.mateType === 'Mate en dos') {
+            // Eliminar comentarios entre llaves
+            const movesWithoutComments = moves.replace(/\{[^}]*\}/g, '').trim();
+            console.log('Movimientos sin comentarios:', movesWithoutComments);
+
+            // Regex mejorado para mates en dos
+            const moveRegex = /1\.([A-Za-z0-9]+[\+#]?)\s+(?:1\.\.\.)?([A-Za-z0-9]+)\s+2\.([A-Za-z0-9]+[\+#]?)/;
+            const matches = movesWithoutComments.match(moveRegex);
             
-            return {
-                firstMove: firstMove.trim(),
-                opponentResponse: opponentResponse.trim(),
-                mateMove: mateMove.trim()
-            };
+            if (matches) {
+                const [_, firstMove, opponentResponse, mateMove] = matches;
+                console.log('Mate en dos detectado:', {
+                    primero: firstMove,
+                    respuesta: opponentResponse,
+                    mate: mateMove
+                });
+                
+                return {
+                    firstMove: firstMove.trim(),
+                    opponentResponse: opponentResponse.trim(),
+                    mateMove: mateMove.trim()
+                };
+            }
+            
+            // Si el primer regex no funciona, intentar con uno más flexible
+            const altRegex = /1\.([A-Za-z0-9]+)(?:\s+|[^A-Za-z0-9]+)([A-Za-z0-9]+)(?:\s+|[^A-Za-z0-9]+)2\.([A-Za-z0-9]+[\+#]?)/;
+            const altMatches = movesWithoutComments.match(altRegex);
+            
+            if (altMatches) {
+                const [_, firstMove, opponentResponse, mateMove] = altMatches;
+                console.log('Mate en dos detectado (formato alternativo):', {
+                    primero: firstMove,
+                    respuesta: opponentResponse,
+                    mate: mateMove
+                });
+                
+                return {
+                    firstMove: firstMove.trim(),
+                    opponentResponse: opponentResponse.trim(),
+                    mateMove: mateMove.trim()
+                };
+            }
         }
         
-        // Intentar formato alternativo con comentarios
-        const altRegex = /1\.([A-Za-z0-9]+)\s*{[^}]*}\s*([A-Za-z0-9]+)\s+2\.([A-Za-z0-9#]+)/;
-        const altMatches = moves.match(altRegex);
-        
-        if (altMatches) {
-            const [_, firstMove, opponentResponse, mateMove] = altMatches;
-            console.log('Mate en dos detectado (formato alternativo):', {
-                primero: firstMove,
-                respuesta: opponentResponse,
-                mate: mateMove
-            });
-            
-            return {
-                firstMove: firstMove.trim(),
-                opponentResponse: opponentResponse.trim(),
-                mateMove: mateMove.trim()
-            };
-        }
-        
-        console.log('No se pudo parsear la secuencia de movimientos');
-        return null;
+        console.error('No se pudo parsear la secuencia de movimientos:', moves);
+        return {
+            firstMove: null,
+            opponentResponse: null,
+            mateMove: null
+        };
     }
 
     updatePuzzleDisplay() {
@@ -219,13 +230,16 @@ class ChessPuzzleSolver {
     handleMove(move) {
         console.log('Movimiento realizado:', move.san);
 
+        // Verificar si tenemos movimientos válidos
+        if (!this.currentMoves) {
+            console.error('No hay movimientos definidos');
+            this.game.undo();
+            return 'snapback';
+        }
+
         if (this.currentPuzzle.mateType === 'Mate en uno') {
-            const expectedMove = this.currentMoves?.firstMove;
+            const expectedMove = this.currentMoves.firstMove;
             const actualMove = move.san;
-            console.log('Comparando movimientos:', {
-                esperado: expectedMove,
-                realizado: actualMove
-            });
 
             if (actualMove === expectedMove && this.game.in_checkmate()) {
                 console.log('¡Mate en uno conseguido!');
@@ -237,35 +251,32 @@ class ChessPuzzleSolver {
             }
         } else if (this.currentPuzzle.mateType === 'Mate en dos') {
             if (!this.waitingForMate) {
-                if (move.san === this.currentMoves.firstMove) {
+                // Primer movimiento
+                const expectedMove = this.currentMoves.firstMove;
+                const actualMove = move.san;
+
+                if (actualMove === expectedMove) {
                     console.log('Primer movimiento correcto');
                     this.waitingForMate = true;
                     
                     // Hacer el movimiento de respuesta del oponente
                     setTimeout(() => {
-                        try {
-                            const opponentMove = this.game.move(this.currentMoves.opponentResponse);
-                            if (opponentMove) {
-                                console.log('Respuesta del oponente:', opponentMove.san);
-                                this.board.position(this.game.fen());
-                                this.updateGameInfo();
-                            } else {
-                                console.error('No se pudo realizar el movimiento del oponente');
-                            }
-                        } catch (error) {
-                            console.error('Error al realizar el movimiento del oponente:', error);
-                            this.game.undo();
-                            this.waitingForMate = false;
-                            return 'snapback';
+                        const opponentMove = this.game.move(this.currentMoves.opponentResponse);
+                        if (opponentMove) {
+                            this.board.position(this.game.fen());
                         }
                     }, 500);
                 } else {
-                    console.log('Primer movimiento incorrecto');
+                    console.log('Movimiento incorrecto');
                     this.game.undo();
                     return 'snapback';
                 }
             } else {
-                if (move.san === this.currentMoves.mateMove && this.game.in_checkmate()) {
+                // Movimiento de mate
+                const expectedMove = this.currentMoves.mateMove;
+                const actualMove = move.san;
+
+                if (actualMove === expectedMove && this.game.in_checkmate()) {
                     console.log('¡Mate en dos conseguido!');
                     this.handlePuzzleCompletion();
                 } else {
