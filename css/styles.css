@@ -26,7 +26,8 @@ body {
 
 .container {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
+    align-items: flex-start;
     padding: 20px;
     gap: 20px;
     max-width: 1400px;
@@ -40,6 +41,11 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 20px;
+    height: calc(100vh - 60px);
 }
 
 .board-column {
@@ -58,8 +64,8 @@ body {
 .puzzles-list {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 10px;
-    padding: 20px;
+    gap: 5px;
+    padding: 10px;
     background: #f5f5f5;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -70,7 +76,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 15px;
+    padding: 10px;
     background: white;
     border-radius: 6px;
     cursor: pointer;
@@ -216,8 +222,9 @@ body {
 .board-column {
     flex: 2;
     display: flex;
-    justify-content: center;
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
 }
 
 .puzzles-column {
@@ -415,9 +422,9 @@ body.dragging {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 15px;
-    margin-bottom: 20px;
-    padding: 10px;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 8px;
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -453,12 +460,12 @@ body.dragging {
 @media (max-width: 768px) {
     .puzzles-list {
         grid-template-columns: repeat(4, 1fr);
-        gap: 8px;
-        padding: 15px;
+        gap: 4px;
+        padding: 8px;
     }
 
     .puzzle-item {
-        padding: 12px;
+        padding: 8px;
         font-size: 1em;
     }
 }
@@ -466,12 +473,12 @@ body.dragging {
 @media (max-width: 480px) {
     .puzzles-list {
         grid-template-columns: repeat(3, 1fr);
-        gap: 6px;
-        padding: 10px;
+        gap: 3px;
+        padding: 6px;
     }
 
     .puzzle-item {
-        padding: 10px;
+        padding: 6px;
         font-size: 0.9em;
     }
 
@@ -731,8 +738,9 @@ body.dragging {
     }
 
     .column {
-        width: 90%;
-        margin: 0 auto;
+        width: 100%;
+        height: auto;
+        margin-bottom: 20px;
     }
 
     .info-column {
@@ -774,20 +782,15 @@ body.dragging {
 
 @media (max-width: 768px) {
     .container {
-        padding: 5px;
+        padding: 10px;
     }
 
     .column {
-        width: 90%;
+        padding: 15px;
     }
 
-    .puzzles-list {
-        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-    }
-
-    .game-info {
-        flex-direction: column;
-        gap: 10px;
+    .board-column {
+        max-width: 600px;
     }
 }
 
