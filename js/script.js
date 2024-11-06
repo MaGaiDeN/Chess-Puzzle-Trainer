@@ -615,7 +615,29 @@ class ChessPuzzleSolver {
             // Guardar y actualizar UI
             this.saveUserProgress();
             this.updateProgressDisplay();
-            this.displayPuzzlePage(this.currentPage);
+            
+            // Verificar si todos los puzzles de la página actual están resueltos
+            const puzzlesPerPage = 10;
+            const currentPageStart = (this.currentPage - 1) * puzzlesPerPage;
+            const currentPageEnd = Math.min(currentPageStart + puzzlesPerPage, this.allPuzzles.length);
+            const currentPagePuzzles = this.allPuzzles.slice(currentPageStart, currentPageEnd);
+            
+            const allCurrentPagePuzzlesSolved = currentPagePuzzles.every(puzzle => 
+                this.userProgress.solvedPuzzles.includes(puzzle.id)
+            );
+
+            // Si todos los puzzles de la página actual están resueltos, avanzar a la siguiente página
+            if (allCurrentPagePuzzlesSolved) {
+                const nextPage = this.currentPage + 1;
+                const totalPages = Math.ceil(this.allPuzzles.length / puzzlesPerPage);
+                
+                if (nextPage <= totalPages) {
+                    console.log('Avanzando a la siguiente página:', nextPage);
+                    this.displayPuzzlePage(nextPage);
+                }
+            } else {
+                this.displayPuzzlePage(this.currentPage);
+            }
             
             console.log('Progreso actualizado:', {
                 puzzlesResueltos: this.userProgress.solvedPuzzles.length,
@@ -629,7 +651,7 @@ class ChessPuzzleSolver {
                 if (this.allPuzzles[nextIndex]) {
                     this.loadPuzzle(nextIndex);
                 }
-            }, 1000); // Delay de 1 segundo para ver el mate
+            }, 1000);
         }
     }
 
