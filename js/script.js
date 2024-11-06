@@ -48,7 +48,7 @@ class ChessPuzzleSolver {
 
         // Si es mate en uno
         if (this.currentPuzzle.mateType === 'Mate en uno') {
-            const moveMatch = moves.match(/^1\.([A-Za-z0-9x#\+]+)/);
+            const moveMatch = moves.match(/^1\.([A-Za-z0-9x#\+=]+)/);
             if (moveMatch) {
                 const firstMove = moveMatch[1].trim();
                 console.log('Mate en uno detectado:', firstMove);
@@ -220,7 +220,14 @@ class ChessPuzzleSolver {
         console.log('Movimiento realizado:', move.san);
 
         if (this.currentPuzzle.mateType === 'Mate en uno') {
-            if (move.san === this.currentMoves?.firstMove && this.game.in_checkmate()) {
+            const expectedMove = this.currentMoves?.firstMove;
+            const actualMove = move.san;
+            console.log('Comparando movimientos:', {
+                esperado: expectedMove,
+                realizado: actualMove
+            });
+
+            if (actualMove === expectedMove && this.game.in_checkmate()) {
                 console.log('¡Mate en uno conseguido!');
                 this.handlePuzzleCompletion();
             } else {
@@ -515,7 +522,7 @@ class ChessPuzzleSolver {
             </div>
         `;
 
-        // Resto del código para mostrar puzzles...
+        // Mostrar puzzles
         const start = (pageNumber - 1) * puzzlesPerPage;
         const end = start + puzzlesPerPage;
         const puzzlesForPage = this.allPuzzles.slice(start, end);
@@ -523,14 +530,11 @@ class ChessPuzzleSolver {
         let puzzlesHtml = '';
         puzzlesForPage.forEach(puzzle => {
             const isSolved = this.userProgress.solvedPuzzles.includes(puzzle.id);
+            const puzzleNumber = puzzle.id.replace('Puzzle ', ''); // Extraer solo el número
             puzzlesHtml += `
                 <div class="puzzle-item ${isSolved ? 'solved' : ''} ${puzzle === this.currentPuzzle ? 'active' : ''}"
                      onclick="app.loadPuzzle(${puzzle.index})">
-                    <span class="puzzle-info">
-                        ${puzzle.id}
-                        <span class="mate-type">${puzzle.mateType}</span>
-                    </span>
-                    ${isSolved ? '<span class="solved-mark">✓</span>' : ''}
+                    ${puzzleNumber}${isSolved ? '<span class="solved-mark">✓</span>' : ''}
                 </div>
             `;
         });
