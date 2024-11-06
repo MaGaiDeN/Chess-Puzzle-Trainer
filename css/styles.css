@@ -46,17 +46,21 @@ body {
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     padding: 20px;
     height: calc(100vh - 60px);
+    width: 100%;
 }
 
 .board-column {
+    flex: 2;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
 }
 
 #board {
-    width: 90% !important;
-    max-width: 90%;
+    width: 100% !important;
+    max-width: 100%;
     height: auto !important;
     margin: 0 auto;
 }
@@ -215,12 +219,14 @@ body {
 /* Estilos de columnas */
 .info-column {
     flex: 1;
+    width: 100%;
     min-width: 200px;
     max-width: 250px;
 }
 
 .board-column {
     flex: 2;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -229,6 +235,7 @@ body {
 
 .puzzles-column {
     flex: 1;
+    width: 100%;
     min-width: 300px;
     max-width: 350px;
 }
@@ -428,6 +435,8 @@ body.dragging {
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .nav-button {
@@ -671,37 +680,41 @@ body.dragging {
 }
 
 .game-info {
-    width: 90%;
-    margin: 10px auto;
-    padding: 15px;
+    width: 100%;
+    margin: 10px 0;
+    padding: 12px;
     background: #f5f5f5;
     border-radius: 8px;
     display: flex;
-    justify-content: space-around;
+    justify-content: space-between;
     align-items: center;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-sizing: border-box;
 }
 
 .turn-indicator,
 .puzzle-type {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 5px 0;
+    gap: 8px;
+    padding: 4px;
+    font-size: 0.9em;
 }
 
 .game-info .label {
     font-weight: 600;
     color: #666;
+    white-space: nowrap;
 }
 
 .game-info .value {
-    font-weight: 800;
+    font-weight: 600;
     color: #2c3e50;
-    padding: 5px 10px;
+    padding: 4px 8px;
     background: white;
     border-radius: 4px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    white-space: nowrap;
 }
 
 #turnIndicator.black {
@@ -712,6 +725,36 @@ body.dragging {
 #turnIndicator.white {
     background: #fff;
     color: #2c3e50;
+}
+
+/* Media queries */
+@media (max-width: 768px) {
+    .game-info {
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+    }
+
+    .turn-indicator,
+    .puzzle-type {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
+@media (max-width: 480px) {
+    .game-info {
+        padding: 6px;
+    }
+
+    .turn-indicator,
+    .puzzle-type {
+        font-size: 0.85em;
+    }
+
+    .game-info .value {
+        padding: 3px 6px;
+    }
 }
 
 /* Aseguramos que las casillas del tablero mantengan la proporción cuadrada */
@@ -743,16 +786,13 @@ body.dragging {
         margin-bottom: 20px;
     }
 
-    .info-column {
-        order: 2;
+    .info-column,
+    .puzzles-column {
+        max-width: none;
     }
 
     .board-column {
-        order: 1;
-    }
-
-    .puzzles-column {
-        order: 3;
+        max-width: 800px;
     }
 
     .logo-container,
@@ -787,6 +827,7 @@ body.dragging {
 
     .column {
         padding: 15px;
+        width: 100%;
     }
 
     .board-column {
@@ -795,14 +836,22 @@ body.dragging {
 }
 
 @media (max-width: 480px) {
-    .column {
-        width: 90%;
+    .container {
+        padding: 5px;
     }
 
-    /* Asegurar que los elementos no se desborden */
-    #board {
-        width: 90% !important;
-        height: auto !important;
+    .column {
+        width: 100%;
+        padding: 10px;
+    }
+
+    .board-column {
+        width: 100%;
+    }
+
+    .info-column,
+    .puzzles-column {
+        width: 100%;
     }
 }
 
@@ -813,5 +862,83 @@ body.dragging {
     width: 90%;
     margin: 10px auto;
     text-align: center;
+}
+
+/* Navigation controls */
+.navigation-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding: 8px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.nav-button {
+    padding: 8px 15px;
+    border: none;
+    background: #f8f9fa;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #2c3e50;
+}
+
+.page-info {
+    font-size: 1.1em;
+    color: #2c3e50;
+    font-weight: 500;
+}
+
+/* Media queries */
+@media (max-width: 1024px) {
+    .navigation-controls {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        gap: 10px;
+    }
+
+    .nav-button {
+        width: 100%;
+        text-align: center;
+    }
+
+    .page-info {
+        text-align: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .navigation-controls {
+        padding: 6px;
+        gap: 8px;
+    }
+
+    .nav-button {
+        padding: 6px 12px;
+        font-size: 0.9em;
+    }
+
+    .page-info {
+        font-size: 1em;
+    }
+}
+
+@media (max-width: 480px) {
+    .navigation-controls {
+        padding: 4px;
+        gap: 6px;
+    }
+
+    .nav-button {
+        padding: 5px 10px;
+        font-size: 0.85em;
+    }
 }
   
