@@ -303,6 +303,7 @@ class ChessPuzzleSolver {
             await this.showWelcomeDialog();
             this.setupResetButton();
             await this.loadPuzzles();
+            await this.waitForDependencies();
             await this.initBoard();
             this.setupBoardResize();
             this.loadLastSolvedPuzzle();
@@ -310,6 +311,77 @@ class ChessPuzzleSolver {
             console.log('✅ Aplicación inicializada correctamente');
         } catch (error) {
             console.error('❌ Error en la inicialización:', error);
+        }
+    }
+
+    async waitForDependencies() {
+        console.log('📦 Verificando dependencias...');
+        
+        return new Promise((resolve) => {
+            const maxAttempts = 30;
+            let attempts = 0;
+
+            const checkDeps = () => {
+                attempts++;
+                console.log(`🔍 Verificando dependencias (intento ${attempts}/${maxAttempts})...`);
+
+                const allReady = (
+                    typeof $ !== 'undefined' &&
+                    typeof Chess !== 'undefined' &&
+                    typeof Chessboard !== 'undefined'
+                );
+
+                if (allReady) {
+                    console.log('✅ Todas las dependencias están listas');
+                    console.log('✅ jQuery cargado correctamente');
+                    console.log('✅ Chess.js cargado correctamente');
+                    console.log('✅ Chessboard.js cargado correctamente');
+                    resolve();
+                } else {
+                    if (typeof $ === 'undefined') console.log('⏳ Esperando jQuery...');
+                    if (typeof Chess === 'undefined') console.log('⏳ Esperando Chess.js...');
+                    if (typeof Chessboard === 'undefined') console.log('⏳ Esperando Chessboard.js...');
+
+                    if (attempts < maxAttempts) {
+                        setTimeout(checkDeps, 500);
+                    } else {
+                        console.error('❌ Timeout esperando dependencias');
+                        this.showDependencyError();
+                        resolve();
+                    }
+                }
+            };
+
+            checkDeps();
+        });
+    }
+
+    showDependencyError() {
+        const boardElement = document.getElementById('board');
+        if (boardElement) {
+            boardElement.innerHTML = `
+                <div class="error-message" style="
+                    padding: 20px;
+                    text-align: center;
+                    background: #ffebee;
+                    border: 1px solid #f44336;
+                    border-radius: 8px;
+                    color: #d32f2f;
+                ">
+                    <h3>⚠️ Error de Dependencias</h3>
+                    <p>No se pudieron cargar las librerías necesarias.</p>
+                    <p>Por favor, verifica tu conexión a internet y recarga la página.</p>
+                    <button onclick="location.reload()" style="
+                        background: #f44336;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        margin-top: 10px;
+                    ">🔄 Recargar Página</button>
+                </div>
+            `;
         }
     }
 
@@ -417,21 +489,40 @@ class ChessPuzzleSolver {
         }
 
         return new Promise((resolve) => {
-            const maxAttempts = 10;
+            const maxAttempts = 15;
             let attempts = 0;
 
             const checkBoard = () => {
                 attempts++;
-                console.log(`🔍 Intento ${attempts} de inicializar tablero...`);
+                console.log(`🔍 Intento ${attempts}/${maxAttempts} de inicializar tablero...`);
 
                 if (typeof Chessboard === 'function' && document.getElementById('board')) {
+                    console.log('🎯 Elemento board encontrado:');
+                    const boardElement = document.getElementById('board');
+                    console.log('📐 Elemento board encontrado:', {
+                        exists: !!boardElement,
+                        visible: boardElement ? getComputedStyle(boardElement).display : 'N/A',
+                        width: boardElement ? boardElement.offsetWidth : 'N/A',
+                        height: boardElement ? boardElement.offsetHeight : 'N/A'
+                    });
+
                     this.createBoard();
                     resolve();
-                } else if (attempts < maxAttempts) {
-                    setTimeout(checkBoard, 500);
                 } else {
-                    console.error('❌ No se pudo inicializar el tablero después de', maxAttempts, 'intentos');
-                    resolve();
+                    if (typeof Chessboard === 'undefined') {
+                        console.log('❌ Chessboard.js NO encontrado');
+                    }
+                    if (!document.getElementById('board')) {
+                        console.log('❌ Elemento #board NO encontrado');
+                    }
+                    
+                    if (attempts < maxAttempts) {
+                        setTimeout(checkBoard, 1000);
+                    } else {
+                        console.error('❌ No se pudo inicializar el tablero después de', maxAttempts, 'intentos');
+                        this.showBoardError(0);
+                        resolve();
+                    }
                 }
             };
 
@@ -449,8 +540,20 @@ class ChessPuzzleSolver {
                 return;
             }
 
-            // Limpiar el elemento board
+            // Limpiar el elemento board completamente
             boardElement.innerHTML = '';
+            boardElement.className = 'board-container';
+            
+            // Forzar estilos para asegurar visibilidad
+            boardElement.style.cssText = `
+                width: 100% !important;
+                height: 100% !important;
+                min-width: 300px !important;
+                min-height: 300px !important;
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+            `;
 
             this.game = new Chess();
             this.boardConfig = {
@@ -470,21 +573,31 @@ class ChessPuzzleSolver {
                 onSnapEnd: () => this.onSnapEnd()
             };
             
+            console.log('🎮 Iniciando creación del tablero...');
             this.board = Chessboard('board', this.boardConfig);
             this.boardInitialized = true;
             
             console.log('✅ Tablero creado exitosamente');
             
-            // Forzar resize después de crear el tablero
+            // Verificar que el tablero se creó correctamente
             setTimeout(() => {
+                const createdBoard = document.querySelector('#board .board-b72b1');
+                if (createdBoard) {
+                    console.log('✅ Tablero visual confirmado');
+                } else {
+                    console.error('❌ Tablero visual NO encontrado');
+                }
+                
                 if (this.board && this.board.resize) {
                     this.board.resize();
+                    console.log('🔧 Redimensionamiento aplicado');
                 }
-            }, 100);
+            }, 500);
             
         } catch (error) {
             console.error('❌ Error creando tablero:', error);
             this.boardInitialized = false;
+            this.showBoardError(0);
         }
     }
 
@@ -510,6 +623,7 @@ class ChessPuzzleSolver {
             if (this.board && this.board.resize) {
                 setTimeout(() => {
                     this.board.resize();
+                    console.log('🔧 Tablero redimensionado');
                 }, 100);
             }
         };
@@ -764,31 +878,13 @@ class ChessPuzzleSolver {
     }
 }
 
-// Función para verificar dependencias
-function checkDependencies() {
-    const dependencies = [
-        { name: 'jQuery', check: () => typeof $ !== 'undefined' },
-        { name: 'Chess.js', check: () => typeof Chess !== 'undefined' },
-        { name: 'Chessboard.js', check: () => typeof Chessboard !== 'undefined' }
-    ];
-
-    dependencies.forEach(dep => {
-        if (dep.check()) {
-            console.log(`✅ ${dep.name} cargado correctamente`);
-        } else {
-            console.error(`❌ ${dep.name} NO está disponible`);
-        }
-    });
-}
-
 // Inicializar la aplicación con verificaciones robustas
 window.addEventListener('load', () => {
     console.log('🏁 Chess Puzzle Trainer cargado');
-    checkDependencies();
     
-    // Esperar un poco más para asegurar que todas las dependencias estén listas
+    // Esperar un poco para GitHub Pages
     setTimeout(() => {
         console.log('🚀 Iniciando aplicación...');
         window.app = new ChessPuzzleSolver();
-    }, 1000);
+    }, 2000);
 });
