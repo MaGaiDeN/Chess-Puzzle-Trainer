@@ -9,6 +9,8 @@ class ChessPuzzleSolver {
         this.waitingForMate = false;
         this.saveProgress = false;
         this.playerName = '';
+        this.board = null;
+        this.boardInitialized = false;
         
         this.initializeApp();
     }
@@ -24,7 +26,14 @@ class ChessPuzzleSolver {
 
         try {
             this.game.load(this.currentPuzzle.fen);
-            this.board.position(this.currentPuzzle.fen);
+            
+            // Asegurar que el tablero está inicializado antes de cargar la posición
+            this.ensureBoardInitialized().then(() => {
+                if (this.board) {
+                    this.board.position(this.currentPuzzle.fen);
+                }
+            });
+            
             this.currentMoves = this.handleMateInTwo();
             
             if (this.currentPuzzle.mateType === 'Mate en uno' && !this.currentMoves.firstMove) {
@@ -45,17 +54,21 @@ class ChessPuzzleSolver {
             
         } catch (error) {
             console.error('Error cargando puzzle:', error);
-            const boardElement = document.getElementById('board');
-            if (boardElement) {
-                boardElement.innerHTML = `
-                    <div class="puzzle-error">
-                        <h3>Error cargando el puzzle</h3>
-                        <p>Ha ocurrido un error al cargar el puzzle ${index + 1}.</p>
-                        <button onclick="app.loadPuzzle(${Math.max(0, index - 1)})">Puzzle anterior</button>
-                        <button onclick="app.loadPuzzle(${Math.min(this.allPuzzles.length - 1, index + 1)})">Puzzle siguiente</button>
-                    </div>
-                `;
-            }
+            this.showBoardError(index);
+        }
+    }
+
+    showBoardError(index) {
+        const boardElement = document.getElementById('board');
+        if (boardElement) {
+            boardElement.innerHTML = `
+                <div class="puzzle-error">
+                    <h3>Error cargando el puzzle</h3>
+                    <p>Ha ocurrido un error al cargar el puzzle ${index + 1}.</p>
+                    <button onclick="app.loadPuzzle(${Math.max(0, index - 1)})">Puzzle anterior</button>
+                    <button onclick="app.loadPuzzle(${Math.min(this.allPuzzles.length - 1, index + 1)})">Puzzle siguiente</button>
+                </div>
+            `;
         }
     }
 
@@ -242,7 +255,7 @@ class ChessPuzzleSolver {
                     
                     setTimeout(() => {
                         const opponentMove = this.game.move(this.currentMoves.opponentResponse);
-                        if (opponentMove) {
+                        if (opponentMove && this.board) {
                             this.board.position(this.game.fen());
                         }
                     }, 500);
@@ -271,7 +284,9 @@ class ChessPuzzleSolver {
     }
 
     onSnapEnd() {
-        this.board.position(this.game.fen());
+        if (this.board) {
+            this.board.position(this.game.fen());
+        }
     }
 
     loadUserProgress() {
@@ -284,15 +299,17 @@ class ChessPuzzleSolver {
 
     async initializeApp() {
         try {
+            console.log('🚀 Iniciando aplicación...');
             await this.showWelcomeDialog();
             this.setupResetButton();
             await this.loadPuzzles();
-            this.initBoard();
+            await this.initBoard();
             this.setupBoardResize();
             this.loadLastSolvedPuzzle();
             this.updateProgressDisplay();
+            console.log('✅ Aplicación inicializada correctamente');
         } catch (error) {
-            console.error('Error en la inicialización:', error);
+            console.error('❌ Error en la inicialización:', error);
         }
     }
 
@@ -330,7 +347,7 @@ class ChessPuzzleSolver {
         try {
             const basePath = getBasePath();
             const url = `${basePath}/Mate_en_Dos.pgn`;
-            console.log('Intentando cargar desde:', url);
+            console.log('📁 Intentando cargar puzzles desde:', url);
             
             const response = await fetch(url);
             
@@ -340,10 +357,10 @@ class ChessPuzzleSolver {
             
             const data = await response.text();
             this.allPuzzles = this.parsePGN(data);
-            console.log('Puzzles parseados:', this.allPuzzles.length);
+            console.log('✅ Puzzles parseados:', this.allPuzzles.length);
             return this.allPuzzles;
         } catch (error) {
-            console.error('Error cargando puzzles:', error);
+            console.error('❌ Error cargando puzzles:', error);
             const boardColumn = document.querySelector('.board-column');
             if (boardColumn) {
                 boardColumn.innerHTML = `
@@ -394,16 +411,54 @@ class ChessPuzzleSolver {
         return puzzles;
     }
 
-    initBoard() {
-        console.log('Iniciando tablero');
-        this.game = new Chess();
-        this.boardConfig = {
-            draggable: true,
-            position: 'start',
-            pieceTheme: 'https://lichess1.org/assets/piece/cburnett/{piece}.svg',
-            onDragStart: (source, piece) => this.onDragStart(source, piece),
-            onDrop: async (source, target) => {
-                const handleAsync = async () => {
+    async ensureBoardInitialized() {
+        if (this.boardInitialized && this.board) {
+            return Promise.resolve();
+        }
+
+        return new Promise((resolve) => {
+            const maxAttempts = 10;
+            let attempts = 0;
+
+            const checkBoard = () => {
+                attempts++;
+                console.log(`🔍 Intento ${attempts} de inicializar tablero...`);
+
+                if (typeof Chessboard === 'function' && document.getElementById('board')) {
+                    this.createBoard();
+                    resolve();
+                } else if (attempts < maxAttempts) {
+                    setTimeout(checkBoard, 500);
+                } else {
+                    console.error('❌ No se pudo inicializar el tablero después de', maxAttempts, 'intentos');
+                    resolve();
+                }
+            };
+
+            checkBoard();
+        });
+    }
+
+    createBoard() {
+        try {
+            console.log('🏗️ Creando tablero Chessboard.js...');
+            
+            const boardElement = document.getElementById('board');
+            if (!boardElement) {
+                console.error('❌ Elemento board no encontrado');
+                return;
+            }
+
+            // Limpiar el elemento board
+            boardElement.innerHTML = '';
+
+            this.game = new Chess();
+            this.boardConfig = {
+                draggable: true,
+                position: 'start',
+                pieceTheme: 'https://lichess1.org/assets/piece/cburnett/{piece}.svg',
+                onDragStart: (source, piece) => this.onDragStart(source, piece),
+                onDrop: async (source, target) => {
                     try {
                         const result = await this.onDrop(source, target);
                         return result;
@@ -411,19 +466,48 @@ class ChessPuzzleSolver {
                         console.error('Error en onDrop:', error);
                         return 'snapback';
                     }
-                };
-                return handleAsync();
-            },
-            onSnapEnd: () => this.onSnapEnd()
-        };
+                },
+                onSnapEnd: () => this.onSnapEnd()
+            };
+            
+            this.board = Chessboard('board', this.boardConfig);
+            this.boardInitialized = true;
+            
+            console.log('✅ Tablero creado exitosamente');
+            
+            // Forzar resize después de crear el tablero
+            setTimeout(() => {
+                if (this.board && this.board.resize) {
+                    this.board.resize();
+                }
+            }, 100);
+            
+        } catch (error) {
+            console.error('❌ Error creando tablero:', error);
+            this.boardInitialized = false;
+        }
+    }
+
+    async initBoard() {
+        console.log('🎯 Iniciando inicialización del tablero...');
         
-        this.board = Chessboard('board', this.boardConfig);
-        console.log('Tablero creado');
+        // Verificar que las dependencias estén disponibles
+        if (typeof Chess === 'undefined') {
+            console.error('❌ Chess.js no está disponible');
+            return;
+        }
+        
+        if (typeof Chessboard === 'undefined') {
+            console.error('❌ Chessboard.js no está disponible');
+            return;
+        }
+
+        await this.ensureBoardInitialized();
     }
 
     setupBoardResize() {
         const resizeBoard = () => {
-            if (this.board) {
+            if (this.board && this.board.resize) {
                 setTimeout(() => {
                     this.board.resize();
                 }, 100);
@@ -592,7 +676,6 @@ class ChessPuzzleSolver {
 
         const puzzlesContainer = document.querySelector('.puzzles-grid');
         if (puzzlesContainer) {
-            const navigation = puzzlesContainer.parentElement.querySelector('.navigation-controls');
             puzzlesContainer.innerHTML = puzzlesHtml;
         }
     }
@@ -630,15 +713,15 @@ class ChessPuzzleSolver {
 
             modal.style.display = 'flex';
 
-            skipButton.addEventListener('click', () => {
+            const handleSkip = () => {
                 this.saveProgress = false;
                 this.playerName = '';
                 modal.style.display = 'none';
                 this.updateProgressDisplay();
                 resolve();
-            });
+            };
 
-            saveButton.addEventListener('click', () => {
+            const handleSave = () => {
                 const name = nameInput.value.trim();
                 if (name) {
                     this.saveProgress = true;
@@ -653,7 +736,15 @@ class ChessPuzzleSolver {
                 } else {
                     alert('Por favor, introduce tu nombre para guardar el progreso');
                 }
-            });
+            };
+
+            // Limpiar eventos previos
+            skipButton.replaceWith(skipButton.cloneNode(true));
+            saveButton.replaceWith(saveButton.cloneNode(true));
+            
+            // Añadir nuevos eventos
+            document.getElementById('startWithoutSaving').addEventListener('click', handleSkip);
+            document.getElementById('startWithSaving').addEventListener('click', handleSave);
         });
     }
 
@@ -661,16 +752,43 @@ class ChessPuzzleSolver {
         const turnIndicator = document.getElementById('turnIndicator');
         const puzzleType = document.getElementById('puzzleType');
         
-        const turn = this.game.turn() === 'w' ? 'Blancas' : 'Negras';
-        turnIndicator.textContent = turn;
-        turnIndicator.className = 'value ' + (turn === 'Blancas' ? 'white' : 'black');
+        if (turnIndicator && this.game) {
+            const turn = this.game.turn() === 'w' ? 'Blancas' : 'Negras';
+            turnIndicator.textContent = turn;
+            turnIndicator.className = 'value ' + (turn === 'Blancas' ? 'white' : 'black');
+        }
         
-        puzzleType.textContent = this.currentPuzzle.mateType;
+        if (puzzleType && this.currentPuzzle) {
+            puzzleType.textContent = this.currentPuzzle.mateType;
+        }
     }
 }
 
-// Inicializar la aplicación
+// Función para verificar dependencias
+function checkDependencies() {
+    const dependencies = [
+        { name: 'jQuery', check: () => typeof $ !== 'undefined' },
+        { name: 'Chess.js', check: () => typeof Chess !== 'undefined' },
+        { name: 'Chessboard.js', check: () => typeof Chessboard !== 'undefined' }
+    ];
+
+    dependencies.forEach(dep => {
+        if (dep.check()) {
+            console.log(`✅ ${dep.name} cargado correctamente`);
+        } else {
+            console.error(`❌ ${dep.name} NO está disponible`);
+        }
+    });
+}
+
+// Inicializar la aplicación con verificaciones robustas
 window.addEventListener('load', () => {
-    console.log('Página completamente cargada, iniciando aplicación');
-    window.app = new ChessPuzzleSolver();
+    console.log('🏁 Chess Puzzle Trainer cargado');
+    checkDependencies();
+    
+    // Esperar un poco más para asegurar que todas las dependencias estén listas
+    setTimeout(() => {
+        console.log('🚀 Iniciando aplicación...');
+        window.app = new ChessPuzzleSolver();
+    }, 1000);
 });
